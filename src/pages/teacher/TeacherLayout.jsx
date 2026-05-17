@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AppSidebar } from "../../components/UI";
 import { useAuth } from "../../contexts/AuthContext";
 import { logoutUser } from "../../firebase/services";
-import MaterialsPage from "../admin/MaterialsPage";
+import TeacherMyClass from "./TeacherMyClass";
 import ReportsPage from "../admin/ReportsPage";
 
 export default function TeacherLayout() {
@@ -24,10 +24,7 @@ export default function TeacherLayout() {
       />
       <div className="main">
         {page === "myclass" && (
-          <MaterialsPage
-            role="teacher"
-            classFilter={profile?.className}
-          />
+          <TeacherMyClass className={profile?.className} />
         )}
         {page === "reports" && (
           <ReportsPage
