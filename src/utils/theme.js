@@ -18,7 +18,7 @@ export const FLAG_META = {
   repair:   { icon: "🔧", label: "Repair Needed",  color: "#553C9A", bg: "rgba(85,60,154,.1)"   },
 };
 
-export const CLASSES = ["PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10"];
+export const CLASSES = ["PP-1","PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10","Store","KK"];
 
 export const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');

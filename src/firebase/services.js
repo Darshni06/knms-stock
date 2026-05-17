@@ -188,7 +188,7 @@ export const getIssuesForClass = async (classId) => {
 };
 
 export const getAllIssues = async () => {
-  const CLASSES = ["PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10"];
+  const CLASSES = ["PP-1","PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10","Store","KK"];
   const cats = await getCategories();
   const issues = [];
   for (const cat of cats) {

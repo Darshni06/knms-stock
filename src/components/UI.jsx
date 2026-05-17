@@ -95,9 +95,14 @@ export function AppSidebar({ role, active, onNav, onLogout, name, className }) {
     <div className="sidebar">
       <div style={{ padding: "26px 22px 18px", borderBottom: "1px solid rgba(255,255,255,.1)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(44,181,168,.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>📋</div>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(44,181,168,.25)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+            <img src="/assets/logo.png" alt="KNMS Logo"
+              style={{ width: 38, height: 38, objectFit: "cover", borderRadius: 10 }}
+              onError={e => { e.target.style.display = "none"; e.target.parentNode.innerHTML = "📋"; }}
+            />
+          </div>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 14, color: "white", letterSpacing: .3 }}>KN Materials</div>
+            <div style={{ fontWeight: 800, fontSize: 14, color: "white", letterSpacing: .3 }}>KNMS Materials</div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,.45)", fontWeight: 500 }}>Stock Tracker</div>
           </div>
         </div>

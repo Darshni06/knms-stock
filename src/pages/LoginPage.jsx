@@ -37,8 +37,13 @@ export default function LoginPage() {
     }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ fontSize: 44, marginBottom: 6 }}>📋</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: T.slate }}>KN Materials</div>
+          <div style={{ width: 72, height: 72, borderRadius: 18, background: "rgba(44,181,168,.12)", margin: "0 auto 10px", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+            <img src="/assets/logo.png" alt="KNMS Logo"
+              style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 18 }}
+              onError={e => { e.target.style.display = "none"; e.target.parentNode.innerHTML = "📋"; }}
+            />
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: T.slate }}>KNMS Materials</div>
           <div style={{ fontSize: 14, color: T.muted, marginTop: 3 }}>Stock & Material Tracker</div>
         </div>
 
