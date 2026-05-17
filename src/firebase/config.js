@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
@@ -11,18 +11,16 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-export const app = initializeApp(firebaseConfig);
+// Primary app
+export const app = getApps().find(a => a.name === "[DEFAULT]") || initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Secondary app for admin creating teachers without losing session
-let secondaryApp = null;
+// Secondary app — safe re-use if already initialized
 export function getSecondaryApp() {
-  if (!secondaryApp) {
-    secondaryApp = initializeApp(firebaseConfig, "secondary");
-  }
-  return secondaryApp;
+  return getApps().find(a => a.name === "secondary") || initializeApp(firebaseConfig, "secondary");
 }
+
 export function getSecondaryAuth() {
   return getAuth(getSecondaryApp());
 }
