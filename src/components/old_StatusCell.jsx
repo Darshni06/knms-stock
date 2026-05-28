@@ -1,37 +1,53 @@
 import { FLAG_META } from "../utils/theme";
 
-export function StatusCell({ status, onClick, readOnly }) {
+// Shows in admin table: issuedCount + flags
+// Shows in teacher table: available + issuesCount + flags
+export function StatusCell({ status, onClick, isAdmin }) {
   const flags = status
     ? Object.entries(status.flags || {}).filter(([, v]) => v).map(([k]) => k)
     : [];
 
-  const bg = flags.length > 0
+  const hasIssues = flags.length > 0 || (status?.issuesCount > 0);
+
+  const bg = hasIssues
     ? "rgba(255,237,213,.5)"
-    : status?.available != null
+    : (isAdmin ? status?.issuedCount != null : status?.available != null)
       ? "rgba(240,255,248,.6)"
       : "white";
+
+  // What count to show in admin vs teacher
+  const mainCount = isAdmin ? status?.issuedCount : status?.available;
 
   return (
     <td
       className="status-cell"
-      style={{ background: bg, cursor: readOnly ? "default" : "pointer" }}
-      onClick={readOnly ? undefined : onClick}
+      style={{ background: bg, cursor: "pointer" }}
+      onClick={onClick}
     >
       {!status ? (
         <div className="status-cell-empty">—</div>
       ) : (
         <>
-          {status.available != null && (
-            <div style={{ fontWeight: 700, fontSize: 14, color: "#1E2A38", marginBottom: flags.length ? 3 : 0, fontFamily: "DM Mono, monospace" }}>
-              {status.available}
+          {/* Main count */}
+          {mainCount != null && (
+            <div style={{ fontWeight: 700, fontSize: 14, color: "#1E2A38", fontFamily: "DM Mono, monospace", marginBottom: 2 }}>
+              {mainCount}
             </div>
           )}
+          {/* Teacher: issues count badge */}
+          {!isAdmin && status?.issuesCount > 0 && (
+            <div style={{ fontSize: 11, color: "#C05621", fontWeight: 700, marginBottom: 2 }}>
+              ⚠ {status.issuesCount}
+            </div>
+          )}
+          {/* Flag icons */}
           {flags.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-              {flags.map(f => <span key={f} style={{ fontSize: 13 }}>{FLAG_META[f].icon}</span>)}
+              {flags.map(f => <span key={f} style={{ fontSize: 12 }}>{FLAG_META[f].icon}</span>)}
             </div>
           )}
-          {status.notes && flags.length === 0 && (
+          {/* Notes dot */}
+          {status.notes && flags.length === 0 && !hasIssues && (
             <div style={{ fontSize: 10, color: "#7A8FA6" }}>📝</div>
           )}
         </>

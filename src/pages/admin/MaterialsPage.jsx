@@ -10,26 +10,24 @@ import {
   setClassStatus,
 } from "../../firebase/services";
 
-// Classes used for totals: PP-1 to PP-10 + KK (excludes Store)
-const CLASSES_FOR_TOTAL  = CLASSES.filter(c => c !== "Store");
-// Classes for grand total: everything including Store
-const CLASSES_GRAND      = CLASSES;
+// PP-1 to PP-10 + KK (no Store) — used for Total & Issues columns
+const CLASSES_NO_STORE = CLASSES.filter(c => c !== "Store");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function sumIssued(statusMap, itemId, classList) {
+function sumAvailable(statusMap, itemId, classList) {
   return classList.reduce((acc, cls) => {
-    const v = statusMap[itemId]?.[cls]?.issuedCount;
+    const v = statusMap[itemId]?.[cls]?.available;
     return v != null ? acc + Number(v) : acc;
   }, 0);
 }
 
-function countIssues(statusMap, itemId, classList) {
+function countClassesWithIssues(statusMap, itemId, classList) {
   return classList.reduce((acc, cls) => {
     const s = statusMap[itemId]?.[cls];
     if (!s) return acc;
-    const flagged = Object.values(s.flags || {}).some(v => v);
-    const issCount = s.issuesCount > 0;
-    return flagged || issCount ? acc + 1 : acc;
+    const hasFlag    = Object.values(s.flags || {}).some(v => v);
+    const hasIsssCnt = s.issuesCount != null && s.issuesCount > 0;
+    return (hasFlag || hasIsssCnt) ? acc + 1 : acc;
   }, 0);
 }
 
@@ -75,23 +73,28 @@ function CategoryModal({ existing, onClose, onSave }) {
   );
 }
 
-// ─── Item Modal ───────────────────────────────────────────────────────────────
+// ─── Item Modal — includes totalCount field ───────────────────────────────────
 function ItemModal({ existing, onClose, onSave }) {
-  const [name, setName]       = useState(existing?.name || "");
-  const [details, setDetails] = useState(existing?.details || "");
-  const [saving, setSaving]   = useState(false);
+  const [name,       setName]       = useState(existing?.name       || "");
+  const [details,    setDetails]    = useState(existing?.details    || "");
+  const [totalCount, setTotalCount] = useState(existing?.totalCount ?? "");
+  const [saving,     setSaving]     = useState(false);
 
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
-    await onSave({ name: name.trim(), details: details.trim() });
+    await onSave({
+      name:       name.trim(),
+      details:    details.trim(),
+      totalCount: totalCount === "" ? null : Number(totalCount),
+    });
     setSaving(false);
     onClose();
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ width: 440 }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ width: 460 }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
           <div style={{ fontSize: 17, fontWeight: 700, color: T.slate }}>{existing ? "Edit Item" : "Add Item"}</div>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: T.muted }}>×</button>
@@ -104,6 +107,20 @@ function ItemModal({ existing, onClose, onSave }) {
           <div>
             <label className="form-label">Details / Description</label>
             <input className="form-input" placeholder="e.g. 10 cubes" value={details} onChange={e => setDetails(e.target.value)} />
+          </div>
+          <div>
+            <label className="form-label">
+              Total Stock Count&nbsp;
+              <span style={{ color: T.muted, fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 11 }}>
+                (total units available in school)
+              </span>
+            </label>
+            <input
+              className="form-input" type="number" min="0"
+              placeholder="e.g. 90"
+              value={totalCount}
+              onChange={e => setTotalCount(e.target.value)}
+            />
           </div>
           <div style={{ display: "flex", gap: 10, paddingTop: 4 }}>
             <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
@@ -119,18 +136,17 @@ function ItemModal({ existing, onClose, onSave }) {
 
 // ─── Summary Cell (read-only computed column) ─────────────────────────────────
 function SummaryCell({ value, type }) {
-  // type: 'total' | 'grand' | 'issues'
   const styles = {
-    total:  { bg: "rgba(44,181,168,.08)",  color: T.teal2 },
+    total:  { bg: "rgba(44,181,168,.08)",  color: T.teal2  },
     grand:  { bg: "rgba(44,100,168,.08)",  color: "#2B5797" },
-    issues: { bg: value > 0 ? "rgba(232,135,106,.12)" : "rgba(240,255,248,.6)", color: value > 0 ? T.peach : "#48BB78" },
+    issues: { bg: value > 0 ? "rgba(232,135,106,.13)" : "rgba(240,255,248,.7)", color: value > 0 ? T.peach : "#48BB78" },
   };
   const s = styles[type];
   return (
     <td style={{
       padding: "8px 10px", textAlign: "center", verticalAlign: "middle",
       background: s.bg, minWidth: 72,
-      borderLeft: "2px solid rgba(44,181,168,.15)",
+      borderLeft: "2px solid rgba(44,181,168,.13)",
     }}>
       <span style={{ fontFamily: "DM Mono, monospace", fontWeight: 800, fontSize: 15, color: s.color }}>
         {value}
@@ -152,11 +168,11 @@ export default function MaterialsPage({ role, initialCatId }) {
   const [loading, setLoading]         = useState(true);
   const [loadingItems, setLoadingItems] = useState(false);
 
-  const [editModal, setEditModal]         = useState(null);
-  const [savingStatus, setSavingStatus]   = useState(false);
-  const [catModal, setCatModal]           = useState(null);
-  const [itemModal, setItemModal]         = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [editModal,      setEditModal]      = useState(null);
+  const [savingStatus,   setSavingStatus]   = useState(false);
+  const [catModal,       setCatModal]       = useState(null);
+  const [itemModal,      setItemModal]      = useState(null);
+  const [confirmDelete,  setConfirmDelete]  = useState(null);
 
   useEffect(() => {
     getCategories().then(c => {
@@ -227,28 +243,26 @@ export default function MaterialsPage({ role, initialCatId }) {
 
   if (loading) return <Spinner />;
 
-  // Sticky header style helper
   const th = (extra = {}) => ({
     padding: "11px 10px", textAlign: "center",
     fontSize: 11, fontWeight: 700, color: T.muted,
     letterSpacing: .5, textTransform: "uppercase",
     borderBottom: `2px solid ${T.border}`,
-    background: "#F5FAFA",
-    minWidth: 80,
+    background: "#F5FAFA", minWidth: 80,
     ...extra,
   });
 
   return (
     <div className="page-enter">
       <PageHeader
-        eyebrow="Admin View"
+        eyebrow={isAdmin ? "Admin View" : "Teacher View"}
         title="Materials"
-        action={
+        action={isAdmin && (
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn btn-ghost" onClick={() => setCatModal("new")} style={{ fontSize: 12 }}>+ Category</button>
             {activeCatId && <button className="btn btn-primary" onClick={() => setItemModal("new")}>+ Add Item</button>}
           </div>
-        }
+        )}
       />
 
       {/* Category tabs */}
@@ -258,7 +272,7 @@ export default function MaterialsPage({ role, initialCatId }) {
             <div className={`tab ${activeCatId === cat.id ? "active" : ""}`} onClick={() => setActiveCatId(cat.id)}>
               {cat.icon} {cat.name}
             </div>
-            {activeCatId === cat.id && (
+            {isAdmin && activeCatId === cat.id && (
               <div style={{ display: "flex", gap: 2 }}>
                 <button onClick={() => setCatModal(cat)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, opacity: .7, padding: "2px 4px" }}>✏️</button>
                 <button onClick={() => setConfirmDelete({ type: "cat", id: cat.id })} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, opacity: .7, padding: "2px 4px" }}>🗑️</button>
@@ -287,19 +301,21 @@ export default function MaterialsPage({ role, initialCatId }) {
         </div>
       </div>
 
-      {/* Legend for summary columns */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-        {[
-          { color: T.teal2,   bg: "rgba(44,181,168,.1)",   label: "Total Issued (PP-1→PP-10 + KK)" },
-          { color: "#2B5797", bg: "rgba(44,100,168,.08)",  label: "Grand Total (incl. Store)" },
-          { color: T.peach,   bg: "rgba(232,135,106,.12)", label: "Classes with Issues" },
-        ].map(l => (
-          <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: T.muted }}>
-            <div style={{ width: 12, height: 12, borderRadius: 3, background: l.bg, border: `1.5px solid ${l.color}` }} />
-            {l.label}
-          </div>
-        ))}
-      </div>
+      {/* Legend */}
+      {isAdmin && (
+        <div style={{ display: "flex", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
+          {[
+            { color: T.teal2,   bg: "rgba(44,181,168,.1)",   label: "Total Available (PP-1→KK, no Store)" },
+            { color: "#2B5797", bg: "rgba(44,100,168,.08)",  label: "Grand Total (including Store)" },
+            { color: T.peach,   bg: "rgba(232,135,106,.12)", label: "Classes with Issues" },
+          ].map(l => (
+            <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: T.muted }}>
+              <div style={{ width: 12, height: 12, borderRadius: 3, background: l.bg, border: `1.5px solid ${l.color}` }} />
+              {l.label}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Table */}
       {loadingItems ? <Spinner /> : (
@@ -307,71 +323,85 @@ export default function MaterialsPage({ role, initialCatId }) {
           <table style={{ width: "100%", borderCollapse: "collapse", background: "white" }}>
             <thead>
               <tr style={{ background: "#F5FAFA" }}>
-                {/* Material name col */}
                 <th style={{ ...th({ textAlign: "left", paddingLeft: 16, position: "sticky", left: 0, zIndex: 3, minWidth: 220, background: "#F5FAFA" }) }}>
                   Material
                 </th>
-                {/* One col per class */}
+                {/* Total Stock col — admin only */}
+                {isAdmin && (
+                  <th style={{ ...th({ minWidth: 70, color: "#5A67D8" }) }}>
+                    Stock<br /><span style={{ fontSize: 9, fontWeight: 500 }}>Total</span>
+                  </th>
+                )}
                 {CLASSES.map(cls => (
                   <th key={cls} style={th()}>{cls}</th>
                 ))}
-                {/* Summary columns */}
-                <th style={{ ...th({ background: "rgba(44,181,168,.1)", color: T.teal2, borderLeft: "2px solid rgba(44,181,168,.2)" }) }}>
-                  Total<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
-                </th>
-                <th style={{ ...th({ background: "rgba(44,100,168,.08)", color: "#2B5797", borderLeft: "2px solid rgba(44,100,168,.15)" }) }}>
-                  Grand Total<br /><span style={{ fontSize: 9, fontWeight: 500 }}>+Store</span>
-                </th>
-                <th style={{ ...th({ background: "rgba(232,135,106,.1)", color: T.peach, borderLeft: "2px solid rgba(232,135,106,.2)" }) }}>
-                  Issues<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
-                </th>
-                {/* Actions */}
-                <th style={th({ minWidth: 70 })}>Actions</th>
+                {/* Summary cols — admin only */}
+                {isAdmin && <>
+                  <th style={{ ...th({ background: "rgba(44,181,168,.08)", color: T.teal2, borderLeft: "2px solid rgba(44,181,168,.18)" }) }}>
+                    Total<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
+                  </th>
+                  <th style={{ ...th({ background: "rgba(44,100,168,.07)", color: "#2B5797", borderLeft: "2px solid rgba(44,100,168,.15)" }) }}>
+                    Grand<br /><span style={{ fontSize: 9, fontWeight: 500 }}>+Store</span>
+                  </th>
+                  <th style={{ ...th({ background: "rgba(232,135,106,.08)", color: T.peach, borderLeft: "2px solid rgba(232,135,106,.18)" }) }}>
+                    Issues<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
+                  </th>
+                  <th style={th({ minWidth: 70 })}>Actions</th>
+                </>}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={CLASSES.length + 5} style={{ textAlign: "center", padding: 40, color: T.muted, fontSize: 14 }}>
+                  <td colSpan={CLASSES.length + (isAdmin ? 6 : 1)} style={{ textAlign: "center", padding: 40, color: T.muted, fontSize: 14 }}>
                     No items found
                   </td>
                 </tr>
               ) : filtered.map((item, idx) => {
-                const rowBg = idx % 2 === 0 ? "white" : "#FBFDFD";
-                const total      = sumIssued(statusMap, item.id, CLASSES_FOR_TOTAL);
-                const grandTotal = sumIssued(statusMap, item.id, CLASSES_GRAND);
-                const issues     = countIssues(statusMap, item.id, CLASSES_FOR_TOTAL);
+                const rowBg      = idx % 2 === 0 ? "white" : "#FBFDFD";
+                const total      = sumAvailable(statusMap, item.id, CLASSES_NO_STORE);
+                const grandTotal = sumAvailable(statusMap, item.id, CLASSES);
+                const issues     = countClassesWithIssues(statusMap, item.id, CLASSES_NO_STORE);
 
                 return (
                   <tr key={item.id} style={{ borderBottom: `1px solid #F0F7F6`, background: rowBg }}>
-                    {/* Material name */}
+                    {/* Item name */}
                     <td style={{ padding: "11px 16px", position: "sticky", left: 0, background: rowBg, zIndex: 1, borderRight: `1px solid ${T.border}` }}>
                       <div style={{ fontWeight: 600, fontSize: 13.5, color: T.slate }}>{item.name}</div>
                       {item.details && <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{item.details}</div>}
                     </td>
 
-                    {/* Class cells */}
+                    {/* Total stock pill — admin only */}
+                    {isAdmin && (
+                      <td style={{ padding: "8px 10px", textAlign: "center", verticalAlign: "middle" }}>
+                        {item.totalCount != null
+                          ? <span style={{ fontFamily: "DM Mono, monospace", fontWeight: 800, fontSize: 14, color: "#5A67D8", background: "rgba(90,103,216,.08)", borderRadius: 6, padding: "2px 8px" }}>{item.totalCount}</span>
+                          : <span style={{ color: T.border, fontSize: 12 }}>—</span>
+                        }
+                      </td>
+                    )}
+
+                    {/* Class status cells */}
                     {CLASSES.map(cls => (
                       <StatusCell
                         key={cls}
                         status={statusMap[item.id]?.[cls] || null}
-                        isAdmin={true}
                         onClick={() => setEditModal({ item, classId: cls })}
                       />
                     ))}
 
-                    {/* Summary columns */}
-                    <SummaryCell value={total}      type="total" />
-                    <SummaryCell value={grandTotal} type="grand" />
-                    <SummaryCell value={issues}     type="issues" />
-
-                    {/* Actions */}
-                    <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                      <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
-                        <button onClick={() => setItemModal(item)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: .7 }}>✏️</button>
-                        <button onClick={() => setConfirmDelete({ type: "item", id: item.id })} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: .7 }}>🗑️</button>
-                      </div>
-                    </td>
+                    {/* Summary cols — admin only */}
+                    {isAdmin && <>
+                      <SummaryCell value={total}      type="total"  />
+                      <SummaryCell value={grandTotal} type="grand"  />
+                      <SummaryCell value={issues}     type="issues" />
+                      <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                        <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                          <button onClick={() => setItemModal(item)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: .7 }}>✏️</button>
+                          <button onClick={() => setConfirmDelete({ type: "item", id: item.id })} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: .7 }}>🗑️</button>
+                        </div>
+                      </td>
+                    </>}
                   </tr>
                 );
               })}
@@ -389,7 +419,6 @@ export default function MaterialsPage({ role, initialCatId }) {
           onClose={() => setEditModal(null)}
           onSave={handleStatusSave}
           saving={savingStatus}
-          isAdmin={true}
         />
       )}
       {catModal && (

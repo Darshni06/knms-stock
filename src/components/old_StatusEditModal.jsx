@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { T, FLAG_META } from "../utils/theme";
 
-export function StatusEditModal({ item, classId, existing, onClose, onSave, saving }) {
-  const [available, setAvailable] = useState(existing?.available ?? "");
+// isAdmin → shows "Issued Count" (admin gives to class) + issues
+// !isAdmin (teacher) → shows "Available Count" (what's physically there) + "Issues Count" + flags
+export function StatusEditModal({ item, classId, existing, onClose, onSave, saving, isAdmin }) {
+  const [issuedCount,    setIssuedCount]    = useState(existing?.issuedCount    ?? "");
+  const [available,      setAvailable]      = useState(existing?.available      ?? "");
+  const [issuesCount,    setIssuesCount]    = useState(existing?.issuesCount    ?? "");
   const [flags, setFlags] = useState(
     existing?.flags || { broken: false, missing: false, paint: false, purchase: false, repair: false }
   );
@@ -12,14 +16,18 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
 
   const handleSave = () => {
     onSave({
-      available: available === "" ? null : Number(available),
+      issuedCount:  issuedCount  === "" ? null : Number(issuedCount),
+      available:    available    === "" ? null : Number(available),
+      issuesCount:  issuesCount  === "" ? null : Number(issuesCount),
       flags,
       notes,
     });
   };
 
   const handleClear = () => {
+    setIssuedCount("");
     setAvailable("");
+    setIssuesCount("");
     setFlags({ broken: false, missing: false, paint: false, purchase: false, repair: false });
     setNotes("");
   };
@@ -29,6 +37,7 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
+        {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, color: T.slate }}>{item.name}</div>
@@ -41,18 +50,48 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <div>
-            <label className="form-label">Available Count</label>
-            <input
-              className="form-input" type="number" min="0"
-              placeholder="Enter count…"
-              value={available}
-              onChange={e => setAvailable(e.target.value)}
-            />
-          </div>
 
+          {/* ADMIN: Issued Count only */}
+          {isAdmin && (
+            <div>
+              <label className="form-label">Issued Count <span style={{ color: T.muted, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(how many given to this class)</span></label>
+              <input
+                className="form-input" type="number" min="0"
+                placeholder="Enter count issued to class…"
+                value={issuedCount}
+                onChange={e => setIssuedCount(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* TEACHER: Available Count + Issues Count side by side */}
+          {!isAdmin && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label className="form-label">Available Count <span style={{ color: "#48BB78", fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>✓</span></label>
+                <input
+                  className="form-input" type="number" min="0"
+                  placeholder="Physically present…"
+                  value={available}
+                  onChange={e => setAvailable(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="form-label">Issues Count <span style={{ color: T.peach, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>⚠</span></label>
+                <input
+                  className="form-input" type="number" min="0"
+                  placeholder="Number with issues…"
+                  value={issuesCount}
+                  onChange={e => setIssuesCount(e.target.value)}
+                  style={{ borderColor: issuesCount > 0 ? T.peach : "" }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Issue flags — both admin and teacher */}
           <div>
-            <label className="form-label">Issues</label>
+            <label className="form-label">Issue Type</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
               {Object.entries(FLAG_META).map(([key, meta]) => (
                 <button key={key} className="flag-btn" onClick={() => toggle(key)}
@@ -63,6 +102,7 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
             </div>
           </div>
 
+          {/* Notes */}
           <div>
             <label className="form-label">Notes / Remarks</label>
             <textarea
@@ -73,10 +113,13 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
             />
           </div>
 
-          {/* Preview */}
-          {(activeFlags.length > 0 || notes) && (
+          {/* Summary preview */}
+          {(activeFlags.length > 0 || notes || issuesCount > 0) && (
             <div style={{ background: "#F0FAF9", border: "1.5px solid rgba(44,181,168,.25)", borderRadius: 10, padding: 12 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: T.teal2, textTransform: "uppercase", letterSpacing: .6, marginBottom: 6 }}>Summary</div>
+              {!isAdmin && issuesCount !== "" && Number(issuesCount) > 0 && (
+                <div style={{ fontSize: 12, color: T.peach, fontWeight: 700, marginBottom: 6 }}>⚠️ {issuesCount} item(s) with issues</div>
+              )}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: notes ? 8 : 0 }}>
                 {activeFlags.map(([k]) => (
                   <span key={k} className="chip" style={{ background: FLAG_META[k].bg, color: FLAG_META[k].color }}>
@@ -88,11 +131,12 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
             </div>
           )}
 
+          {/* Actions */}
           <div style={{ display: "flex", gap: 10, paddingTop: 4 }}>
             <button className="btn btn-ghost" onClick={handleClear} style={{ fontSize: 12 }}>Clear</button>
             <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
             <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleSave} disabled={saving}>
-              {saving ? "Saving…" : "Save Status"}
+              {saving ? "Saving…" : "Save"}
             </button>
           </div>
         </div>

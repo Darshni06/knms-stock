@@ -143,7 +143,9 @@ export const setClassStatus = async (catId, itemId, classId, data) => {
   await setDoc(
     doc(db, "categories", catId, "items", itemId, "classStatus", classId),
     {
-      available: data.available ?? null,
+      issuedCount:  data.issuedCount  ?? null,   // admin: how many given to class
+      available:    data.available    ?? null,   // teacher: physically present
+      issuesCount:  data.issuesCount  ?? null,   // teacher: number with issues
       flags: data.flags || { broken: false, missing: false, paint: false, purchase: false, repair: false },
       notes: data.notes || "",
       updatedAt: serverTimestamp(),
