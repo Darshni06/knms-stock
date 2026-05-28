@@ -10,30 +10,7 @@ import {
   setClassStatus,
 } from "../../firebase/services";
 
-// Classes used for totals: PP-1 to PP-10 + KK (excludes Store)
-const CLASSES_FOR_TOTAL  = CLASSES.filter(c => c !== "Store");
-// Classes for grand total: everything including Store
-const CLASSES_GRAND      = CLASSES;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function sumIssued(statusMap, itemId, classList) {
-  return classList.reduce((acc, cls) => {
-    const v = statusMap[itemId]?.[cls]?.issuedCount;
-    return v != null ? acc + Number(v) : acc;
-  }, 0);
-}
-
-function countIssues(statusMap, itemId, classList) {
-  return classList.reduce((acc, cls) => {
-    const s = statusMap[itemId]?.[cls];
-    if (!s) return acc;
-    const flagged = Object.values(s.flags || {}).some(v => v);
-    const issCount = s.issuesCount > 0;
-    return flagged || issCount ? acc + 1 : acc;
-  }, 0);
-}
-
-// ─── Category Modal ───────────────────────────────────────────────────────────
+// ─── Category / Item Edit Modals ──────────────────────────────────────────────
 function CategoryModal({ existing, onClose, onSave }) {
   const [name, setName] = useState(existing?.name || "");
   const [icon, setIcon] = useState(existing?.icon || "📦");
@@ -75,8 +52,7 @@ function CategoryModal({ existing, onClose, onSave }) {
   );
 }
 
-// ─── Item Modal ───────────────────────────────────────────────────────────────
-function ItemModal({ existing, onClose, onSave }) {
+function ItemModal({ catId, existing, onClose, onSave }) {
   const [name, setName]       = useState(existing?.name || "");
   const [details, setDetails] = useState(existing?.details || "");
   const [saving, setSaving]   = useState(false);
@@ -117,47 +93,27 @@ function ItemModal({ existing, onClose, onSave }) {
   );
 }
 
-// ─── Summary Cell (read-only computed column) ─────────────────────────────────
-function SummaryCell({ value, type }) {
-  // type: 'total' | 'grand' | 'issues'
-  const styles = {
-    total:  { bg: "rgba(44,181,168,.08)",  color: T.teal2 },
-    grand:  { bg: "rgba(44,100,168,.08)",  color: "#2B5797" },
-    issues: { bg: value > 0 ? "rgba(232,135,106,.12)" : "rgba(240,255,248,.6)", color: value > 0 ? T.peach : "#48BB78" },
-  };
-  const s = styles[type];
-  return (
-    <td style={{
-      padding: "8px 10px", textAlign: "center", verticalAlign: "middle",
-      background: s.bg, minWidth: 72,
-      borderLeft: "2px solid rgba(44,181,168,.15)",
-    }}>
-      <span style={{ fontFamily: "DM Mono, monospace", fontWeight: 800, fontSize: 15, color: s.color }}>
-        {value}
-      </span>
-    </td>
-  );
-}
-
 // ─── Materials Page ───────────────────────────────────────────────────────────
-export default function MaterialsPage({ role, initialCatId }) {
+export default function MaterialsPage({ role, initialCatId, classFilter }) {
   const isAdmin = role === "admin";
 
   const [cats, setCats]               = useState([]);
   const [activeCatId, setActiveCatId] = useState(initialCatId || null);
   const [items, setItems]             = useState([]);
-  const [statusMap, setStatusMap]     = useState({});
+  const [statusMap, setStatusMap]     = useState({}); // { itemId: { classId: statusDoc } }
   const [search, setSearch]           = useState("");
   const [filterFlag, setFilterFlag]   = useState("all");
   const [loading, setLoading]         = useState(true);
   const [loadingItems, setLoadingItems] = useState(false);
 
-  const [editModal, setEditModal]         = useState(null);
-  const [savingStatus, setSavingStatus]   = useState(false);
-  const [catModal, setCatModal]           = useState(null);
-  const [itemModal, setItemModal]         = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null);
+  // Modals
+  const [editModal, setEditModal]       = useState(null); // { item, classId }
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [catModal, setCatModal]         = useState(null); // null | "new" | catObj
+  const [itemModal, setItemModal]       = useState(null); // null | "new" | itemObj
+  const [confirmDelete, setConfirmDelete] = useState(null); // { type: 'cat'|'item', id, catId? }
 
+  // Load categories
   useEffect(() => {
     getCategories().then(c => {
       setCats(c);
@@ -166,6 +122,7 @@ export default function MaterialsPage({ role, initialCatId }) {
     });
   }, []);
 
+  // Load items + status when category changes
   useEffect(() => {
     if (!activeCatId) return;
     loadCategoryData(activeCatId);
@@ -173,95 +130,104 @@ export default function MaterialsPage({ role, initialCatId }) {
 
   const loadCategoryData = useCallback(async (catId) => {
     setLoadingItems(true);
-    const fetchedItems  = await getItems(catId);
+    const fetchedItems = await getItems(catId);
     const fetchedStatus = await getAllStatusForCategory(catId, fetchedItems);
     setItems(fetchedItems);
     setStatusMap(fetchedStatus);
     setLoadingItems(false);
   }, []);
 
+  const activeCat = cats.find(c => c.id === activeCatId);
+
+  // Filter
+  const visibleClasses = classFilter ? [classFilter] : CLASSES;
   const filtered = items.filter(item => {
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterFlag !== "all") {
-      const hasFlag = CLASSES.some(cls => statusMap[item.id]?.[cls]?.flags?.[filterFlag]);
+      const hasFlag = visibleClasses.some(cls => statusMap[item.id]?.[cls]?.flags?.[filterFlag]);
       if (!hasFlag) return false;
     }
     return true;
   });
 
-  // ── Saves ──────────────────────────────────────────────────────────────────
+  // Status save
   const handleStatusSave = async (data) => {
     if (!editModal) return;
     setSavingStatus(true);
-    await setClassStatus(activeCatId, editModal.item.id, editModal.classId, data);
+    const { item, classId } = editModal;
+    await setClassStatus(activeCatId, item.id, classId, data);
+    // Reload full status for this category
     await loadCategoryData(activeCatId);
     setSavingStatus(false);
     setEditModal(null);
   };
 
+  // Category CRUD
   const handleCatSave = async (data) => {
-    if (catModal === "new") await addCategory({ ...data, order: (cats.length + 1) * 10 });
-    else                    await updateCategory(catModal.id, data);
-    setCats(await getCategories());
+    if (catModal === "new") {
+      await addCategory({ ...data, order: (cats.length + 1) * 10 });
+    } else {
+      await updateCategory(catModal.id, data);
+    }
+    const updated = await getCategories();
+    setCats(updated);
   };
 
   const handleCatDelete = async () => {
-    await deleteCategory(confirmDelete.id);
+    const { id } = confirmDelete;
+    await deleteCategory(id);
     const updated = await getCategories();
     setCats(updated);
-    if (activeCatId === confirmDelete.id) setActiveCatId(updated[0]?.id || null);
+    if (activeCatId === id) setActiveCatId(updated[0]?.id || null);
     setConfirmDelete(null);
   };
 
+  // Item CRUD
   const handleItemSave = async (data) => {
-    if (itemModal === "new") await addItem(activeCatId, { ...data, order: (items.length + 1) * 10 });
-    else                     await updateItem(activeCatId, itemModal.id, data);
+    if (itemModal === "new") {
+      await addItem(activeCatId, { ...data, order: (items.length + 1) * 10 });
+    } else {
+      await updateItem(activeCatId, itemModal.id, data);
+    }
     await loadCategoryData(activeCatId);
   };
 
   const handleItemDelete = async () => {
-    await deleteItem(activeCatId, confirmDelete.id);
+    const { id } = confirmDelete;
+    await deleteItem(activeCatId, id);
     await loadCategoryData(activeCatId);
     setConfirmDelete(null);
   };
 
   if (loading) return <Spinner />;
 
-  // Sticky header style helper
-  const th = (extra = {}) => ({
-    padding: "11px 10px", textAlign: "center",
-    fontSize: 11, fontWeight: 700, color: T.muted,
-    letterSpacing: .5, textTransform: "uppercase",
-    borderBottom: `2px solid ${T.border}`,
-    background: "#F5FAFA",
-    minWidth: 80,
-    ...extra,
-  });
-
   return (
     <div className="page-enter">
       <PageHeader
-        eyebrow="Admin View"
+        eyebrow={isAdmin ? "Admin View" : "Teacher View"}
         title="Materials"
-        action={
+        action={isAdmin && (
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn btn-ghost" onClick={() => setCatModal("new")} style={{ fontSize: 12 }}>+ Category</button>
             {activeCatId && <button className="btn btn-primary" onClick={() => setItemModal("new")}>+ Add Item</button>}
           </div>
-        }
+        )}
       />
 
       {/* Category tabs */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20, alignItems: "center" }}>
         {cats.map(cat => (
           <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <div className={`tab ${activeCatId === cat.id ? "active" : ""}`} onClick={() => setActiveCatId(cat.id)}>
+            <div className={`tab ${activeCatId === cat.id ? "active" : ""}`}
+              onClick={() => setActiveCatId(cat.id)}>
               {cat.icon} {cat.name}
             </div>
-            {activeCatId === cat.id && (
+            {isAdmin && activeCatId === cat.id && (
               <div style={{ display: "flex", gap: 2 }}>
-                <button onClick={() => setCatModal(cat)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, opacity: .7, padding: "2px 4px" }}>✏️</button>
-                <button onClick={() => setConfirmDelete({ type: "cat", id: cat.id })} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, opacity: .7, padding: "2px 4px" }}>🗑️</button>
+                <button onClick={() => setCatModal(cat)}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, opacity: .7, padding: "2px 4px" }}>✏️</button>
+                <button onClick={() => setConfirmDelete({ type: "cat", id: cat.id })}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, opacity: .7, padding: "2px 4px" }}>🗑️</button>
               </div>
             )}
           </div>
@@ -273,7 +239,8 @@ export default function MaterialsPage({ role, initialCatId }) {
         <SearchInput value={search} onChange={setSearch} placeholder="Search items…" />
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {[{ value: "all", label: "All" }, ...Object.entries(FLAG_META).map(([k, m]) => ({ value: k, label: `${m.icon} ${m.label}` }))].map(f => (
-            <button key={f.value} onClick={() => setFilterFlag(f.value)}
+            <button key={f.value}
+              onClick={() => setFilterFlag(f.value)}
               style={{
                 padding: "6px 13px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
                 border: `1.5px solid ${filterFlag === f.value ? T.teal : T.border}`,
@@ -287,100 +254,68 @@ export default function MaterialsPage({ role, initialCatId }) {
         </div>
       </div>
 
-      {/* Legend for summary columns */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-        {[
-          { color: T.teal2,   bg: "rgba(44,181,168,.1)",   label: "Total Issued (PP-1→PP-10 + KK)" },
-          { color: "#2B5797", bg: "rgba(44,100,168,.08)",  label: "Grand Total (incl. Store)" },
-          { color: T.peach,   bg: "rgba(232,135,106,.12)", label: "Classes with Issues" },
-        ].map(l => (
-          <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: T.muted }}>
-            <div style={{ width: 12, height: 12, borderRadius: 3, background: l.bg, border: `1.5px solid ${l.color}` }} />
-            {l.label}
-          </div>
-        ))}
-      </div>
-
       {/* Table */}
       {loadingItems ? <Spinner /> : (
         <div style={{ overflowX: "auto", borderRadius: 14, boxShadow: "0 2px 14px rgba(30,42,56,.07)", border: `1px solid ${T.border}` }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", background: "white" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", background: "white", minWidth: 900 }}>
             <thead>
               <tr style={{ background: "#F5FAFA" }}>
-                {/* Material name col */}
-                <th style={{ ...th({ textAlign: "left", paddingLeft: 16, position: "sticky", left: 0, zIndex: 3, minWidth: 220, background: "#F5FAFA" }) }}>
+                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: T.muted, letterSpacing: .6, textTransform: "uppercase", position: "sticky", left: 0, background: "#F5FAFA", zIndex: 2, minWidth: 220, borderBottom: `2px solid ${T.border}` }}>
                   Material
                 </th>
-                {/* One col per class */}
-                {CLASSES.map(cls => (
-                  <th key={cls} style={th()}>{cls}</th>
+                {visibleClasses.map(cls => (
+                  <th key={cls} style={{ padding: "12px 10px", textAlign: "center", fontSize: 11, fontWeight: 700, color: T.muted, letterSpacing: .6, textTransform: "uppercase", borderBottom: `2px solid ${T.border}`, minWidth: 88 }}>
+                    {cls}
+                  </th>
                 ))}
-                {/* Summary columns */}
-                <th style={{ ...th({ background: "rgba(44,181,168,.1)", color: T.teal2, borderLeft: "2px solid rgba(44,181,168,.2)" }) }}>
-                  Total<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
-                </th>
-                <th style={{ ...th({ background: "rgba(44,100,168,.08)", color: "#2B5797", borderLeft: "2px solid rgba(44,100,168,.15)" }) }}>
-                  Grand Total<br /><span style={{ fontSize: 9, fontWeight: 500 }}>+Store</span>
-                </th>
-                <th style={{ ...th({ background: "rgba(232,135,106,.1)", color: T.peach, borderLeft: "2px solid rgba(232,135,106,.2)" }) }}>
-                  Issues<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
-                </th>
-                {/* Actions */}
-                <th style={th({ minWidth: 70 })}>Actions</th>
+                {isAdmin && (
+                  <th style={{ padding: "12px 10px", textAlign: "center", fontSize: 11, fontWeight: 700, color: T.muted, borderBottom: `2px solid ${T.border}`, minWidth: 80 }}>
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={CLASSES.length + 5} style={{ textAlign: "center", padding: 40, color: T.muted, fontSize: 14 }}>
+                  <td colSpan={visibleClasses.length + (isAdmin ? 2 : 1)} style={{ textAlign: "center", padding: 40, color: T.muted, fontSize: 14 }}>
                     No items found
                   </td>
                 </tr>
-              ) : filtered.map((item, idx) => {
-                const rowBg = idx % 2 === 0 ? "white" : "#FBFDFD";
-                const total      = sumIssued(statusMap, item.id, CLASSES_FOR_TOTAL);
-                const grandTotal = sumIssued(statusMap, item.id, CLASSES_GRAND);
-                const issues     = countIssues(statusMap, item.id, CLASSES_FOR_TOTAL);
-
-                return (
-                  <tr key={item.id} style={{ borderBottom: `1px solid #F0F7F6`, background: rowBg }}>
-                    {/* Material name */}
-                    <td style={{ padding: "11px 16px", position: "sticky", left: 0, background: rowBg, zIndex: 1, borderRight: `1px solid ${T.border}` }}>
-                      <div style={{ fontWeight: 600, fontSize: 13.5, color: T.slate }}>{item.name}</div>
-                      {item.details && <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{item.details}</div>}
-                    </td>
-
-                    {/* Class cells */}
-                    {CLASSES.map(cls => (
+              ) : filtered.map((item, idx) => (
+                <tr key={item.id} style={{ borderBottom: `1px solid #F0F7F6`, background: idx % 2 === 0 ? "white" : "#FBFDFD" }}>
+                  <td style={{ padding: "11px 16px", position: "sticky", left: 0, background: idx % 2 === 0 ? "white" : "#FBFDFD", zIndex: 1, borderRight: `1px solid ${T.border}` }}>
+                    <div style={{ fontWeight: 600, fontSize: 13.5, color: T.slate }}>{item.name}</div>
+                    {item.details && <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{item.details}</div>}
+                  </td>
+                  {visibleClasses.map(cls => {
+                    const status = statusMap[item.id]?.[cls] || null;
+                    return (
                       <StatusCell
                         key={cls}
-                        status={statusMap[item.id]?.[cls] || null}
-                        isAdmin={true}
+                        status={status}
                         onClick={() => setEditModal({ item, classId: cls })}
                       />
-                    ))}
-
-                    {/* Summary columns */}
-                    <SummaryCell value={total}      type="total" />
-                    <SummaryCell value={grandTotal} type="grand" />
-                    <SummaryCell value={issues}     type="issues" />
-
-                    {/* Actions */}
+                    );
+                  })}
+                  {isAdmin && (
                     <td style={{ padding: "8px 10px", textAlign: "center" }}>
                       <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
-                        <button onClick={() => setItemModal(item)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: .7 }}>✏️</button>
-                        <button onClick={() => setConfirmDelete({ type: "item", id: item.id })} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: .7 }}>🗑️</button>
+                        <button onClick={() => setItemModal(item)}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: .7 }}>✏️</button>
+                        <button onClick={() => setConfirmDelete({ type: "item", id: item.id })}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: .7 }}>🗑️</button>
                       </div>
                     </td>
-                  </tr>
-                );
-              })}
+                  )}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Modals */}
+      {/* Status Edit Modal */}
       {editModal && (
         <StatusEditModal
           item={editModal.item}
@@ -389,9 +324,10 @@ export default function MaterialsPage({ role, initialCatId }) {
           onClose={() => setEditModal(null)}
           onSave={handleStatusSave}
           saving={savingStatus}
-          isAdmin={true}
         />
       )}
+
+      {/* Category Modal */}
       {catModal && (
         <CategoryModal
           existing={catModal !== "new" ? catModal : null}
@@ -399,17 +335,22 @@ export default function MaterialsPage({ role, initialCatId }) {
           onSave={handleCatSave}
         />
       )}
+
+      {/* Item Modal */}
       {itemModal && (
         <ItemModal
+          catId={activeCatId}
           existing={itemModal !== "new" ? itemModal : null}
           onClose={() => setItemModal(null)}
           onSave={handleItemSave}
         />
       )}
+
+      {/* Confirm Delete */}
       {confirmDelete && (
         <ConfirmDialog
           title={`Delete ${confirmDelete.type === "cat" ? "Category" : "Item"}?`}
-          message={`This will permanently delete the ${confirmDelete.type} and all associated data. This cannot be undone.`}
+          message={`This will permanently delete the ${confirmDelete.type} and all associated status data across all classes. This cannot be undone.`}
           danger
           onConfirm={confirmDelete.type === "cat" ? handleCatDelete : handleItemDelete}
           onCancel={() => setConfirmDelete(null)}

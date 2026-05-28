@@ -247,7 +247,6 @@ export default function TeacherMyClass({ className }) {
           onClose={() => setEditModal(null)}
           onSave={handleStatusSave}
           saving={savingStatus}
-          isAdmin={false}
         />
       )}
     </div>
