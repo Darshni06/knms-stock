@@ -75,18 +75,16 @@ function CategoryModal({ existing, onClose, onSave }) {
 
 // ─── Item Modal — includes totalCount field ───────────────────────────────────
 function ItemModal({ existing, onClose, onSave }) {
-  const [name,       setName]       = useState(existing?.name       || "");
-  const [details,    setDetails]    = useState(existing?.details    || "");
-  const [totalCount, setTotalCount] = useState(existing?.totalCount ?? "");
+  const [name,       setName]       = useState(existing?.name    || "");
+  const [details,    setDetails]    = useState(existing?.details || "");
   const [saving,     setSaving]     = useState(false);
 
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
     await onSave({
-      name:       name.trim(),
-      details:    details.trim(),
-      totalCount: totalCount === "" ? null : Number(totalCount),
+      name:    name.trim(),
+      details: details.trim(),
     });
     setSaving(false);
     onClose();
@@ -107,20 +105,6 @@ function ItemModal({ existing, onClose, onSave }) {
           <div>
             <label className="form-label">Details / Description</label>
             <input className="form-input" placeholder="e.g. 10 cubes" value={details} onChange={e => setDetails(e.target.value)} />
-          </div>
-          <div>
-            <label className="form-label">
-              Total Stock Count&nbsp;
-              <span style={{ color: T.muted, fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 11 }}>
-                (total units available in school)
-              </span>
-            </label>
-            <input
-              className="form-input" type="number" min="0"
-              placeholder="e.g. 90"
-              value={totalCount}
-              onChange={e => setTotalCount(e.target.value)}
-            />
           </div>
           <div style={{ display: "flex", gap: 10, paddingTop: 4 }}>
             <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
@@ -305,8 +289,8 @@ export default function MaterialsPage({ role, initialCatId }) {
       {isAdmin && (
         <div style={{ display: "flex", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
           {[
-            { color: T.teal2,   bg: "rgba(44,181,168,.1)",   label: "Total Available (PP-1→KK, no Store)" },
-            { color: "#2B5797", bg: "rgba(44,100,168,.08)",  label: "Grand Total (including Store)" },
+            { color: T.teal2,   bg: "rgba(44,181,168,.1)",   label: "Total Allocated (PP-1→KK, no Store)" },
+            { color: "#2B5797", bg: "rgba(44,100,168,.08)",  label: "Grand Total Allocated (including Store)" },
             { color: T.peach,   bg: "rgba(232,135,106,.12)", label: "Classes with Issues" },
           ].map(l => (
             <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: T.muted }}>
@@ -326,22 +310,16 @@ export default function MaterialsPage({ role, initialCatId }) {
                 <th style={{ ...th({ textAlign: "left", paddingLeft: 16, position: "sticky", left: 0, zIndex: 3, minWidth: 220, background: "#F5FAFA" }) }}>
                   Material
                 </th>
-                {/* Total Stock col — admin only */}
-                {isAdmin && (
-                  <th style={{ ...th({ minWidth: 70, color: "#5A67D8" }) }}>
-                    Stock<br /><span style={{ fontSize: 9, fontWeight: 500 }}>Total</span>
-                  </th>
-                )}
                 {CLASSES.map(cls => (
                   <th key={cls} style={th()}>{cls}</th>
                 ))}
                 {/* Summary cols — admin only */}
                 {isAdmin && <>
                   <th style={{ ...th({ background: "rgba(44,181,168,.08)", color: T.teal2, borderLeft: "2px solid rgba(44,181,168,.18)" }) }}>
-                    Total<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
+                    Allocated<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
                   </th>
                   <th style={{ ...th({ background: "rgba(44,100,168,.07)", color: "#2B5797", borderLeft: "2px solid rgba(44,100,168,.15)" }) }}>
-                    Grand<br /><span style={{ fontSize: 9, fontWeight: 500 }}>+Store</span>
+                    Allocated<br /><span style={{ fontSize: 9, fontWeight: 500 }}>+Store</span>
                   </th>
                   <th style={{ ...th({ background: "rgba(232,135,106,.08)", color: T.peach, borderLeft: "2px solid rgba(232,135,106,.18)" }) }}>
                     Issues<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
@@ -353,7 +331,7 @@ export default function MaterialsPage({ role, initialCatId }) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={CLASSES.length + (isAdmin ? 6 : 1)} style={{ textAlign: "center", padding: 40, color: T.muted, fontSize: 14 }}>
+                  <td colSpan={CLASSES.length + (isAdmin ? 5 : 1)} style={{ textAlign: "center", padding: 40, color: T.muted, fontSize: 14 }}>
                     No items found
                   </td>
                 </tr>
@@ -370,16 +348,6 @@ export default function MaterialsPage({ role, initialCatId }) {
                       <div style={{ fontWeight: 600, fontSize: 13.5, color: T.slate }}>{item.name}</div>
                       {item.details && <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{item.details}</div>}
                     </td>
-
-                    {/* Total stock pill — admin only */}
-                    {isAdmin && (
-                      <td style={{ padding: "8px 10px", textAlign: "center", verticalAlign: "middle" }}>
-                        {item.totalCount != null
-                          ? <span style={{ fontFamily: "DM Mono, monospace", fontWeight: 800, fontSize: 14, color: "#5A67D8", background: "rgba(90,103,216,.08)", borderRadius: 6, padding: "2px 8px" }}>{item.totalCount}</span>
-                          : <span style={{ color: T.border, fontSize: 12 }}>—</span>
-                        }
-                      </td>
-                    )}
 
                     {/* Class status cells */}
                     {CLASSES.map(cls => (

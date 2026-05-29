@@ -13,32 +13,45 @@ function StatusBadge({ status }) {
   );
 
   const flags = Object.entries(status.flags || {}).filter(([, v]) => v);
+  const hasIssues = flags.length > 0 || (status.issuesCount != null && status.issuesCount > 0);
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      {/* Available count */}
       {status.available != null && (
         <span style={{
           fontFamily: "DM Mono, monospace", fontWeight: 700, fontSize: 15,
           color: T.slate, background: "#F0FAF9", borderRadius: 7,
           padding: "2px 10px", border: "1px solid rgba(44,181,168,.2)"
         }}>
-          {status.available}
+          ✓ {status.available}
         </span>
       )}
-      {flags.length > 0
-        ? flags.map(([k]) => (
-          <span key={k} style={{
-            fontSize: 12, fontWeight: 600, padding: "2px 9px", borderRadius: 20,
-            background: FLAG_META[k].bg, color: FLAG_META[k].color,
-            display: "inline-flex", alignItems: "center", gap: 4
-          }}>
-            {FLAG_META[k].icon} {FLAG_META[k].label}
-          </span>
-        ))
-        : status.available != null && (
-          <span style={{ fontSize: 12, color: "#48BB78", fontWeight: 600 }}>✓ OK</span>
-        )
-      }
+      {/* Issues count */}
+      {status.issuesCount != null && status.issuesCount > 0 && (
+        <span style={{
+          fontFamily: "DM Mono, monospace", fontWeight: 700, fontSize: 14,
+          color: "#C05621", background: "rgba(232,135,106,.1)", borderRadius: 7,
+          padding: "2px 10px", border: "1px solid rgba(232,135,106,.3)"
+        }}>
+          ⚠ {status.issuesCount}
+        </span>
+      )}
+      {/* Flag chips */}
+      {flags.map(([k]) => (
+        <span key={k} style={{
+          fontSize: 12, fontWeight: 600, padding: "2px 9px", borderRadius: 20,
+          background: FLAG_META[k].bg, color: FLAG_META[k].color,
+          display: "inline-flex", alignItems: "center", gap: 4
+        }}>
+          {FLAG_META[k].icon} {FLAG_META[k].label}
+        </span>
+      ))}
+      {/* OK label if recorded with no issues */}
+      {!hasIssues && status.available != null && (
+        <span style={{ fontSize: 12, color: "#48BB78", fontWeight: 600 }}>OK</span>
+      )}
+      {/* Notes */}
       {status.notes && (
         <span style={{ fontSize: 11, color: T.muted, fontStyle: "italic" }}>📝 {status.notes.slice(0, 40)}{status.notes.length > 40 ? "…" : ""}</span>
       )}
@@ -107,7 +120,10 @@ export default function TeacherMyClass({ className }) {
   // Count issues for summary
   const issueCount = items.filter(item => {
     const s = statusMap[item.id]?.[className];
-    return s && Object.values(s.flags || {}).some(v => v);
+    if (!s) return false;
+    const hasFlag = Object.values(s.flags || {}).some(v => v);
+    const hasIssueCnt = s.issuesCount != null && s.issuesCount > 0;
+    return hasFlag || hasIssueCnt;
   }).length;
 
   const recordedCount = items.filter(item => statusMap[item.id]?.[className]).length;

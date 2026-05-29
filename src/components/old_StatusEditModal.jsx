@@ -1,12 +1,16 @@
 import { useState } from "react";
 import { T, FLAG_META } from "../utils/theme";
 
-// isAdmin → shows "Issued Count" (admin gives to class) + issues
-// !isAdmin (teacher) → shows "Available Count" (what's physically there) + "Issues Count" + flags
-export function StatusEditModal({ item, classId, existing, onClose, onSave, saving, isAdmin }) {
-  const [issuedCount,    setIssuedCount]    = useState(existing?.issuedCount    ?? "");
-  const [available,      setAvailable]      = useState(existing?.available      ?? "");
-  const [issuesCount,    setIssuesCount]    = useState(existing?.issuesCount    ?? "");
+// Both admin and teacher see the same fields now:
+// - Available Count (physically present in class)
+// - Issues Count (how many of those have problems)
+// - Issue type flags
+// - Notes
+// Admin additionally sees the item's totalCount (read-only, set on item creation)
+
+export function StatusEditModal({ item, classId, existing, onClose, onSave, saving }) {
+  const [available,   setAvailable]   = useState(existing?.available   ?? "");
+  const [issuesCount, setIssuesCount] = useState(existing?.issuesCount ?? "");
   const [flags, setFlags] = useState(
     existing?.flags || { broken: false, missing: false, paint: false, purchase: false, repair: false }
   );
@@ -16,16 +20,14 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
 
   const handleSave = () => {
     onSave({
-      issuedCount:  issuedCount  === "" ? null : Number(issuedCount),
-      available:    available    === "" ? null : Number(available),
-      issuesCount:  issuesCount  === "" ? null : Number(issuesCount),
+      available:   available   === "" ? null : Number(available),
+      issuesCount: issuesCount === "" ? null : Number(issuesCount),
       flags,
       notes,
     });
   };
 
   const handleClear = () => {
-    setIssuedCount("");
     setAvailable("");
     setIssuesCount("");
     setFlags({ broken: false, missing: false, paint: false, purchase: false, repair: false });
@@ -37,59 +39,59 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
+
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, color: T.slate }}>{item.name}</div>
             <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ background: "rgba(44,181,168,.12)", color: T.teal2, borderRadius: 6, padding: "2px 9px", fontWeight: 700, fontSize: 12 }}>{classId}</span>
+              <span style={{ background: "rgba(44,181,168,.12)", color: T.teal2, borderRadius: 6, padding: "2px 9px", fontWeight: 700, fontSize: 12 }}>
+                {classId}
+              </span>
               {item.details && <span style={{ fontSize: 12, color: T.muted }}>{item.details}</span>}
             </div>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: T.muted, lineHeight: 1 }}>×</button>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {/* Total count info pill — show if item has a totalCount set by admin */}
+        {item.totalCount != null && (
+          <div style={{ background: "rgba(44,181,168,.06)", border: "1px solid rgba(44,181,168,.2)", borderRadius: 8, padding: "8px 12px", marginBottom: 16, fontSize: 12, color: T.teal2, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontWeight: 700 }}>📦 Total Stock for this item:</span>
+            <span style={{ fontFamily: "DM Mono, monospace", fontWeight: 800, fontSize: 14 }}>{item.totalCount}</span>
+          </div>
+        )}
 
-          {/* ADMIN: Issued Count only */}
-          {isAdmin && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Available + Issues Count side by side */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label className="form-label">Issued Count <span style={{ color: T.muted, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(how many given to this class)</span></label>
+              <label className="form-label">
+                Available Count <span style={{ color: "#48BB78", fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>✓</span>
+              </label>
               <input
                 className="form-input" type="number" min="0"
-                placeholder="Enter count issued to class…"
-                value={issuedCount}
-                onChange={e => setIssuedCount(e.target.value)}
+                placeholder="Physically present…"
+                value={available}
+                onChange={e => setAvailable(e.target.value)}
               />
             </div>
-          )}
-
-          {/* TEACHER: Available Count + Issues Count side by side */}
-          {!isAdmin && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <label className="form-label">Available Count <span style={{ color: "#48BB78", fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>✓</span></label>
-                <input
-                  className="form-input" type="number" min="0"
-                  placeholder="Physically present…"
-                  value={available}
-                  onChange={e => setAvailable(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="form-label">Issues Count <span style={{ color: T.peach, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>⚠</span></label>
-                <input
-                  className="form-input" type="number" min="0"
-                  placeholder="Number with issues…"
-                  value={issuesCount}
-                  onChange={e => setIssuesCount(e.target.value)}
-                  style={{ borderColor: issuesCount > 0 ? T.peach : "" }}
-                />
-              </div>
+            <div>
+              <label className="form-label">
+                Issues Count <span style={{ color: T.peach, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>⚠</span>
+              </label>
+              <input
+                className="form-input" type="number" min="0"
+                placeholder="Count with issues…"
+                value={issuesCount}
+                onChange={e => setIssuesCount(e.target.value)}
+                style={{ borderColor: issuesCount !== "" && Number(issuesCount) > 0 ? T.peach : "" }}
+              />
             </div>
-          )}
+          </div>
 
-          {/* Issue flags — both admin and teacher */}
+          {/* Issue type flags */}
           <div>
             <label className="form-label">Issue Type</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
@@ -107,18 +109,18 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
             <label className="form-label">Notes / Remarks</label>
             <textarea
               className="form-textarea"
-              placeholder="Describe issue, condition details…"
+              placeholder="Describe condition, issue details…"
               value={notes}
               onChange={e => setNotes(e.target.value)}
             />
           </div>
 
           {/* Summary preview */}
-          {(activeFlags.length > 0 || notes || issuesCount > 0) && (
+          {(activeFlags.length > 0 || notes || (issuesCount !== "" && Number(issuesCount) > 0)) && (
             <div style={{ background: "#F0FAF9", border: "1.5px solid rgba(44,181,168,.25)", borderRadius: 10, padding: 12 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: T.teal2, textTransform: "uppercase", letterSpacing: .6, marginBottom: 6 }}>Summary</div>
-              {!isAdmin && issuesCount !== "" && Number(issuesCount) > 0 && (
-                <div style={{ fontSize: 12, color: T.peach, fontWeight: 700, marginBottom: 6 }}>⚠️ {issuesCount} item(s) with issues</div>
+              {issuesCount !== "" && Number(issuesCount) > 0 && (
+                <div style={{ fontSize: 12, color: T.peach, fontWeight: 700, marginBottom: 6 }}>⚠️ {issuesCount} with issues</div>
               )}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: notes ? 8 : 0 }}>
                 {activeFlags.map(([k]) => (
