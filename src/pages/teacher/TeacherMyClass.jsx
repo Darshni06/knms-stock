@@ -25,7 +25,7 @@ function StatusBadge({ status }) {
           color: T.slate, background: "#F0FAF9", borderRadius: 7,
           padding: "2px 10px", border: "1px solid rgba(44,181,168,.2)"
         }}>
-          ✓ {status.allocated} allocated
+          ✓ {status.allocated} available
         </span>
       )}
       {/* Per-flag counts */}
