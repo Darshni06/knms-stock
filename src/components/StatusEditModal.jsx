@@ -84,7 +84,7 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
           {/* Allocated Count — both roles */}
           <div>
             <label className="form-label">
-              Count Allocated to this Class <span style={{ color: "#48BB78", fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>✓</span>
+              Count Available <span style={{ color: "#48BB78", fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>✓</span>
             </label>
             <input
               className="form-input" type="number" min="0"

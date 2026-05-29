@@ -300,9 +300,9 @@ export default function MaterialsPage({ role, initialCatId }) {
       {isAdmin && (
         <div style={{ display: "flex", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
           {[
-            { color: T.teal2,   bg: "rgba(44,181,168,.1)",   label: "Total Allocated (PP-1→KK, no Store)" },
-            { color: "#2B5797", bg: "rgba(44,100,168,.08)",  label: "Grand Total Allocated (including Store)" },
-            { color: T.peach,   bg: "rgba(232,135,106,.12)", label: "Classes with Issues" },
+            { color: T.teal2,   bg: "rgba(44,181,168,.1)",   label: "Total (PP-1→KK, no Store)" },
+            { color: "#2B5797", bg: "rgba(44,100,168,.08)",  label: "Grand Total (including Store)" },
+            { color: T.peach,   bg: "rgba(232,135,106,.12)", label: "Issues" },
           ].map(l => (
             <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: T.muted }}>
               <div style={{ width: 12, height: 12, borderRadius: 3, background: l.bg, border: `1.5px solid ${l.color}` }} />
