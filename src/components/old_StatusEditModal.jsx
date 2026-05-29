@@ -54,25 +54,17 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: T.muted, lineHeight: 1 }}>×</button>
         </div>
 
-        {/* Total count info pill — show if item has a totalCount set by admin */}
-        {item.totalCount != null && (
-          <div style={{ background: "rgba(44,181,168,.06)", border: "1px solid rgba(44,181,168,.2)", borderRadius: 8, padding: "8px 12px", marginBottom: 16, fontSize: 12, color: T.teal2, display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontWeight: 700 }}>📦 Total Stock for this item:</span>
-            <span style={{ fontFamily: "DM Mono, monospace", fontWeight: 800, fontSize: 14 }}>{item.totalCount}</span>
-          </div>
-        )}
-
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {/* Available + Issues Count side by side */}
+          {/* Allocated + Issues Count side by side */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label className="form-label">
-                Available Count <span style={{ color: "#48BB78", fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>✓</span>
+                Count Allocated <span style={{ color: "#48BB78", fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>✓</span>
               </label>
               <input
                 className="form-input" type="number" min="0"
-                placeholder="Physically present…"
+                placeholder="Count given to this class…"
                 value={available}
                 onChange={e => setAvailable(e.target.value)}
               />

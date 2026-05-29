@@ -96,10 +96,13 @@ export const getItems = async (catId) => {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 };
 
-export const addItem = async (catId, { name, details, order }) => {
+export const addItem = async (catId, { name, details, totalCount, order }) => {
   return await addDoc(collection(db, "categories", catId, "items"), {
-    name, details: details || "", order: order ?? Date.now(),
-    createdAt: serverTimestamp(),
+    name,
+    details:    details    || "",
+    totalCount: totalCount ?? null,
+    order:      order      ?? Date.now(),
+    createdAt:  serverTimestamp(),
   });
 };
 
@@ -143,9 +146,8 @@ export const setClassStatus = async (catId, itemId, classId, data) => {
   await setDoc(
     doc(db, "categories", catId, "items", itemId, "classStatus", classId),
     {
-      issuedCount:  data.issuedCount  ?? null,   // admin: how many given to class
-      available:    data.available    ?? null,   // teacher: physically present
-      issuesCount:  data.issuesCount  ?? null,   // teacher: number with issues
+      available:   data.available   ?? null,
+      issuesCount: data.issuesCount ?? null,
       flags: data.flags || { broken: false, missing: false, paint: false, purchase: false, repair: false },
       notes: data.notes || "",
       updatedAt: serverTimestamp(),

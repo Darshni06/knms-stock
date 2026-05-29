@@ -1,53 +1,54 @@
 import { FLAG_META } from "../utils/theme";
 
-// Shows available count (teacher-entered) + issuesCount + flags
-// Same display for both admin table and teacher table
+// Shows in cells:
+// - allocated count (green)
+// - per-flag issue counts if teacher entered them, else flag icons
 export function StatusCell({ status, onClick }) {
-  const flags = status
-    ? Object.entries(status.flags || {}).filter(([, v]) => v).map(([k]) => k)
-    : [];
+  if (!status) {
+    return (
+      <td className="status-cell" style={{ background: "white", cursor: "pointer" }} onClick={onClick}>
+        <div className="status-cell-empty">—</div>
+      </td>
+    );
+  }
 
-  const hasIssues = flags.length > 0 || (status?.issuesCount != null && status.issuesCount > 0);
+  const flags = Object.entries(status.flags || {}).filter(([, v]) => v);
+  const flagCounts = status.flagCounts || {};
+  const hasIssues = flags.length > 0;
 
   const bg = hasIssues
     ? "rgba(255,237,213,.55)"
-    : status?.available != null
+    : status.allocated != null
       ? "rgba(240,255,248,.7)"
       : "white";
 
   return (
-    <td
-      className="status-cell"
-      style={{ background: bg, cursor: "pointer" }}
-      onClick={onClick}
-    >
-      {!status ? (
-        <div className="status-cell-empty">—</div>
-      ) : (
-        <>
-          {/* Available count — green */}
-          {status.available != null && (
-            <div style={{ fontWeight: 700, fontSize: 14, color: "#1E2A38", fontFamily: "DM Mono, monospace", marginBottom: 2 }}>
-              {status.available}
-            </div>
-          )}
-          {/* Issues count — orange */}
-          {status.issuesCount != null && status.issuesCount > 0 && (
-            <div style={{ fontSize: 11, color: "#C05621", fontWeight: 700, marginBottom: 2 }}>
-              ⚠ {status.issuesCount}
-            </div>
-          )}
-          {/* Flag icons */}
-          {flags.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-              {flags.map(f => <span key={f} style={{ fontSize: 12 }}>{FLAG_META[f].icon}</span>)}
-            </div>
-          )}
-          {/* Notes dot — only if nothing else shown */}
-          {status.notes && !hasIssues && status.available == null && (
-            <div style={{ fontSize: 10, color: "#7A8FA6" }}>📝</div>
-          )}
-        </>
+    <td className="status-cell" style={{ background: bg, cursor: "pointer" }} onClick={onClick}>
+      {/* Allocated count */}
+      {status.allocated != null && (
+        <div style={{ fontWeight: 700, fontSize: 14, color: "#1E2A38", fontFamily: "DM Mono, monospace", marginBottom: 2 }}>
+          {status.allocated}
+        </div>
+      )}
+      {/* Per-flag counts (teacher) or flag icons (admin) */}
+      {flags.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {flags.map(([f]) => {
+            const cnt = flagCounts[f];
+            return (
+              <div key={f} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <span style={{ fontSize: 11 }}>{FLAG_META[f].icon}</span>
+                {cnt != null && cnt > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: FLAG_META[f].color, fontFamily: "DM Mono, monospace" }}>{cnt}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {/* Notes dot */}
+      {status.notes && !hasIssues && status.allocated == null && (
+        <div style={{ fontSize: 10, color: "#7A8FA6" }}>📝</div>
       )}
     </td>
   );

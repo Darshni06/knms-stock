@@ -1,38 +1,63 @@
 import { useState } from "react";
 import { T, FLAG_META } from "../utils/theme";
 
-// Both admin and teacher see the same fields now:
-// - Available Count (physically present in class)
-// - Issues Count (how many of those have problems)
-// - Issue type flags
-// - Notes
-// Admin additionally sees the item's totalCount (read-only, set on item creation)
+// isAdmin=true  → shows "Allocated Count" + flag toggles (no per-flag counts)
+// isAdmin=false → shows "Allocated Count" + per-flag issue counts (no toggles)
 
-export function StatusEditModal({ item, classId, existing, onClose, onSave, saving }) {
-  const [available,   setAvailable]   = useState(existing?.available   ?? "");
-  const [issuesCount, setIssuesCount] = useState(existing?.issuesCount ?? "");
+export function StatusEditModal({ item, classId, existing, onClose, onSave, saving, isAdmin }) {
+  const [allocated, setAllocated] = useState(existing?.allocated ?? "");
+
+  // Per-flag issue counts — teacher only
+  const [flagCounts, setFlagCounts] = useState(
+    existing?.flagCounts || { broken: "", missing: "", paint: "", purchase: "", repair: "" }
+  );
+
+  // Flag toggles — admin only
   const [flags, setFlags] = useState(
     existing?.flags || { broken: false, missing: false, paint: false, purchase: false, repair: false }
   );
+
   const [notes, setNotes] = useState(existing?.notes || "");
 
   const toggle = (f) => setFlags(p => ({ ...p, [f]: !p[f] }));
 
+  const setFlagCount = (f, val) =>
+    setFlagCounts(p => ({ ...p, [f]: val }));
+
   const handleSave = () => {
-    onSave({
-      available:   available   === "" ? null : Number(available),
-      issuesCount: issuesCount === "" ? null : Number(issuesCount),
-      flags,
-      notes,
-    });
+    if (isAdmin) {
+      onSave({
+        allocated: allocated === "" ? null : Number(allocated),
+        flags,
+        flagCounts: null,
+        notes,
+      });
+    } else {
+      // derive flags from flagCounts > 0
+      const derivedFlags = Object.fromEntries(
+        Object.entries(flagCounts).map(([k, v]) => [k, v !== "" && Number(v) > 0])
+      );
+      onSave({
+        allocated:  allocated === "" ? null : Number(allocated),
+        flags:      derivedFlags,
+        flagCounts: Object.fromEntries(
+          Object.entries(flagCounts).map(([k, v]) => [k, v === "" ? null : Number(v)])
+        ),
+        notes,
+      });
+    }
   };
 
   const handleClear = () => {
-    setAvailable("");
-    setIssuesCount("");
+    setAllocated("");
+    setFlagCounts({ broken: "", missing: "", paint: "", purchase: "", repair: "" });
     setFlags({ broken: false, missing: false, paint: false, purchase: false, repair: false });
     setNotes("");
   };
+
+  // total issues for preview (teacher)
+  const totalIssues = Object.values(flagCounts)
+    .reduce((acc, v) => acc + (v !== "" && Number(v) > 0 ? Number(v) : 0), 0);
 
   const activeFlags = Object.entries(flags).filter(([, v]) => v);
 
@@ -56,45 +81,69 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {/* Allocated + Issues Count side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label className="form-label">
-                Count Allocated <span style={{ color: "#48BB78", fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>✓</span>
-              </label>
-              <input
-                className="form-input" type="number" min="0"
-                placeholder="Count given to this class…"
-                value={available}
-                onChange={e => setAvailable(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="form-label">
-                Issues Count <span style={{ color: T.peach, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>⚠</span>
-              </label>
-              <input
-                className="form-input" type="number" min="0"
-                placeholder="Count with issues…"
-                value={issuesCount}
-                onChange={e => setIssuesCount(e.target.value)}
-                style={{ borderColor: issuesCount !== "" && Number(issuesCount) > 0 ? T.peach : "" }}
-              />
-            </div>
+          {/* Allocated Count — both roles */}
+          <div>
+            <label className="form-label">
+              Count Allocated to this Class <span style={{ color: "#48BB78", fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>✓</span>
+            </label>
+            <input
+              className="form-input" type="number" min="0"
+              placeholder="Count given to this class…"
+              value={allocated}
+              onChange={e => setAllocated(e.target.value)}
+            />
           </div>
 
-          {/* Issue type flags */}
-          <div>
-            <label className="form-label">Issue Type</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
-              {Object.entries(FLAG_META).map(([key, meta]) => (
-                <button key={key} className="flag-btn" onClick={() => toggle(key)}
-                  style={flags[key] ? { borderColor: meta.color, background: meta.bg, color: meta.color } : {}}>
-                  {meta.icon} {meta.label}
-                </button>
-              ))}
+          {/* ADMIN: flag toggles */}
+          {isAdmin && (
+            <div>
+              <label className="form-label">Issue Type</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+                {Object.entries(FLAG_META).map(([key, meta]) => (
+                  <button key={key} className="flag-btn" onClick={() => toggle(key)}
+                    style={flags[key] ? { borderColor: meta.color, background: meta.bg, color: meta.color } : {}}>
+                    {meta.icon} {meta.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* TEACHER: per-flag issue counts */}
+          {!isAdmin && (
+            <div>
+              <label className="form-label">Issues Count per Type</label>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+                {Object.entries(FLAG_META).map(([key, meta]) => (
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      minWidth: 160, padding: "6px 10px", borderRadius: 8,
+                      background: flagCounts[key] !== "" && Number(flagCounts[key]) > 0 ? meta.bg : "#F8FCFC",
+                      border: `1.5px solid ${flagCounts[key] !== "" && Number(flagCounts[key]) > 0 ? meta.color : T.border}`,
+                      fontSize: 13, fontWeight: 600,
+                      color: flagCounts[key] !== "" && Number(flagCounts[key]) > 0 ? meta.color : T.muted,
+                    }}>
+                      <span>{meta.icon}</span>
+                      <span>{meta.label}</span>
+                    </div>
+                    <input
+                      className="form-input"
+                      type="number" min="0"
+                      placeholder="0"
+                      value={flagCounts[key]}
+                      onChange={e => setFlagCount(key, e.target.value)}
+                      style={{
+                        width: 90, textAlign: "center",
+                        borderColor: flagCounts[key] !== "" && Number(flagCounts[key]) > 0 ? meta.color : "",
+                        fontFamily: "DM Mono, monospace", fontWeight: 700,
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Notes */}
           <div>
@@ -108,22 +157,32 @@ export function StatusEditModal({ item, classId, existing, onClose, onSave, savi
           </div>
 
           {/* Summary preview */}
-          {(activeFlags.length > 0 || notes || (issuesCount !== "" && Number(issuesCount) > 0)) && (
+          {(isAdmin ? activeFlags.length > 0 : totalIssues > 0) || notes ? (
             <div style={{ background: "#F0FAF9", border: "1.5px solid rgba(44,181,168,.25)", borderRadius: 10, padding: 12 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: T.teal2, textTransform: "uppercase", letterSpacing: .6, marginBottom: 6 }}>Summary</div>
-              {issuesCount !== "" && Number(issuesCount) > 0 && (
-                <div style={{ fontSize: 12, color: T.peach, fontWeight: 700, marginBottom: 6 }}>⚠️ {issuesCount} with issues</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.teal2, textTransform: "uppercase", letterSpacing: .6, marginBottom: 8 }}>Summary</div>
+              {!isAdmin && totalIssues > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+                  {Object.entries(flagCounts).map(([k, v]) =>
+                    v !== "" && Number(v) > 0 ? (
+                      <span key={k} className="chip" style={{ background: FLAG_META[k].bg, color: FLAG_META[k].color }}>
+                        {FLAG_META[k].icon} {FLAG_META[k].label}: <strong>{v}</strong>
+                      </span>
+                    ) : null
+                  )}
+                </div>
               )}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: notes ? 8 : 0 }}>
-                {activeFlags.map(([k]) => (
-                  <span key={k} className="chip" style={{ background: FLAG_META[k].bg, color: FLAG_META[k].color }}>
-                    {FLAG_META[k].icon} {FLAG_META[k].label}
-                  </span>
-                ))}
-              </div>
+              {isAdmin && activeFlags.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: notes ? 6 : 0 }}>
+                  {activeFlags.map(([k]) => (
+                    <span key={k} className="chip" style={{ background: FLAG_META[k].bg, color: FLAG_META[k].color }}>
+                      {FLAG_META[k].icon} {FLAG_META[k].label}
+                    </span>
+                  ))}
+                </div>
+              )}
               {notes && <div style={{ fontSize: 12, color: T.slateM, fontStyle: "italic" }}>"{notes}"</div>}
             </div>
-          )}
+          ) : null}
 
           {/* Actions */}
           <div style={{ display: "flex", gap: 10, paddingTop: 4 }}>

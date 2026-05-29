@@ -146,11 +146,11 @@ export const setClassStatus = async (catId, itemId, classId, data) => {
   await setDoc(
     doc(db, "categories", catId, "items", itemId, "classStatus", classId),
     {
-      available:   data.available   ?? null,
-      issuesCount: data.issuesCount ?? null,
-      flags: data.flags || { broken: false, missing: false, paint: false, purchase: false, repair: false },
-      notes: data.notes || "",
-      updatedAt: serverTimestamp(),
+      allocated:   data.allocated   ?? null,
+      flags:       data.flags       || { broken: false, missing: false, paint: false, purchase: false, repair: false },
+      flagCounts:  data.flagCounts  || { broken: null, missing: null, paint: null, purchase: null, repair: null },
+      notes:       data.notes       || "",
+      updatedAt:   serverTimestamp(),
     },
     { merge: true }
   );
@@ -174,15 +174,17 @@ export const getIssuesForClass = async (classId) => {
       );
       if (snap.exists()) {
         const data = snap.data();
-        const activeFlags = Object.entries(data.flags || {})
-          .filter(([, v]) => v)
-          .map(([k]) => k);
-        if (activeFlags.length > 0 || data.notes) {
+        const activeFlags = Object.entries(data.flags || {}).filter(([, v]) => v);
+        const hasFlagCounts = Object.values(data.flagCounts || {}).some(v => v != null && v > 0);
+        if (activeFlags.length > 0 || hasFlagCounts || data.notes) {
           issues.push({
             category: cat.name, categoryIcon: cat.icon,
             item: item.name, itemDetails: item.details,
-            classId, flags: data.flags || {}, notes: data.notes || "",
-            available: data.available,
+            classId,
+            flags:      data.flags      || {},
+            flagCounts: data.flagCounts || {},
+            notes:      data.notes      || "",
+            allocated:  data.allocated,
           });
         }
       }
@@ -204,16 +206,18 @@ export const getAllIssues = async () => {
         );
         if (snap.exists()) {
           const data = snap.data();
-          const activeFlags = Object.entries(data.flags || {})
-            .filter(([, v]) => v)
-            .map(([k]) => k);
-          if (activeFlags.length > 0) {
+          const activeFlags    = Object.entries(data.flags || {}).filter(([, v]) => v);
+          const hasFlagCounts  = Object.values(data.flagCounts || {}).some(v => v != null && v > 0);
+          if (activeFlags.length > 0 || hasFlagCounts) {
             issues.push({
               category: cat.name, categoryIcon: cat.icon,
               categoryId: cat.id, itemId: item.id,
               item: item.name, itemDetails: item.details,
-              classId, flags: data.flags || {}, notes: data.notes || "",
-              available: data.available,
+              classId,
+              flags:      data.flags      || {},
+              flagCounts: data.flagCounts || {},
+              notes:      data.notes      || "",
+              allocated:  data.allocated,
             });
           }
         }

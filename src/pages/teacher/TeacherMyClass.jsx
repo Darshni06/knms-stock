@@ -12,33 +12,34 @@ function StatusBadge({ status }) {
     <span style={{ fontSize: 12, color: "#C8D8D7", fontWeight: 500 }}>Not recorded</span>
   );
 
-  const flags = Object.entries(status.flags || {}).filter(([, v]) => v);
-  const hasIssues = flags.length > 0 || (status.issuesCount != null && status.issuesCount > 0);
+  const flags      = Object.entries(status.flags || {}).filter(([, v]) => v);
+  const flagCounts = Object.entries(status.flagCounts || {}).filter(([, v]) => v != null && v > 0);
+  const hasIssues  = flags.length > 0 || flagCounts.length > 0;
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       {/* Allocated count */}
-      {status.available != null && (
+      {status.allocated != null && (
         <span style={{
           fontFamily: "DM Mono, monospace", fontWeight: 700, fontSize: 15,
           color: T.slate, background: "#F0FAF9", borderRadius: 7,
           padding: "2px 10px", border: "1px solid rgba(44,181,168,.2)"
         }}>
-          ✓ {status.available} allocated
+          ✓ {status.allocated} allocated
         </span>
       )}
-      {/* Issues count */}
-      {status.issuesCount != null && status.issuesCount > 0 && (
-        <span style={{
-          fontFamily: "DM Mono, monospace", fontWeight: 700, fontSize: 14,
-          color: "#C05621", background: "rgba(232,135,106,.1)", borderRadius: 7,
-          padding: "2px 10px", border: "1px solid rgba(232,135,106,.3)"
+      {/* Per-flag counts */}
+      {flagCounts.map(([k, v]) => (
+        <span key={k} style={{
+          fontSize: 12, fontWeight: 600, padding: "2px 9px", borderRadius: 20,
+          background: FLAG_META[k].bg, color: FLAG_META[k].color,
+          display: "inline-flex", alignItems: "center", gap: 4
         }}>
-          ⚠ {status.issuesCount}
+          {FLAG_META[k].icon} {FLAG_META[k].label}: <strong style={{ fontFamily: "DM Mono, monospace" }}>{v}</strong>
         </span>
-      )}
-      {/* Flag chips */}
-      {flags.map(([k]) => (
+      ))}
+      {/* Admin-style flag chips (no count) */}
+      {flagCounts.length === 0 && flags.map(([k]) => (
         <span key={k} style={{
           fontSize: 12, fontWeight: 600, padding: "2px 9px", borderRadius: 20,
           background: FLAG_META[k].bg, color: FLAG_META[k].color,
@@ -47,8 +48,8 @@ function StatusBadge({ status }) {
           {FLAG_META[k].icon} {FLAG_META[k].label}
         </span>
       ))}
-      {/* OK label if recorded with no issues */}
-      {!hasIssues && status.available != null && (
+      {/* OK label */}
+      {!hasIssues && status.allocated != null && (
         <span style={{ fontSize: 12, color: "#48BB78", fontWeight: 600 }}>OK</span>
       )}
       {/* Notes */}
@@ -112,7 +113,9 @@ export default function TeacherMyClass({ className }) {
     if (filterFlag === "recorded")   return !!status;
     if (filterFlag === "unrecorded") return !status;
     if (filterFlag !== "all") {
-      if (!status?.flags?.[filterFlag]) return false;
+      const flagOn   = status?.flags?.[filterFlag];
+      const countOn  = status?.flagCounts?.[filterFlag] != null && status.flagCounts[filterFlag] > 0;
+      if (!flagOn && !countOn) return false;
     }
     return true;
   });
@@ -121,9 +124,9 @@ export default function TeacherMyClass({ className }) {
   const issueCount = items.filter(item => {
     const s = statusMap[item.id]?.[className];
     if (!s) return false;
-    const hasFlag = Object.values(s.flags || {}).some(v => v);
-    const hasIssueCnt = s.issuesCount != null && s.issuesCount > 0;
-    return hasFlag || hasIssueCnt;
+    const hasFlag      = Object.values(s.flags || {}).some(v => v);
+    const hasFlagCount = Object.values(s.flagCounts || {}).some(v => v != null && v > 0);
+    return hasFlag || hasFlagCount;
   }).length;
 
   const recordedCount = items.filter(item => statusMap[item.id]?.[className]).length;
@@ -200,7 +203,7 @@ export default function TeacherMyClass({ className }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {filtered.map((item, idx) => {
                 const status = statusMap[item.id]?.[className] || null;
-                const hasIssue = status && Object.values(status.flags || {}).some(v => v);
+                const hasIssue   = status && (Object.values(status.flags || {}).some(v => v) || Object.values(status.flagCounts || {}).some(v => v != null && v > 0));
                 const isRecorded = !!status;
 
                 return (

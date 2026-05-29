@@ -14,9 +14,9 @@ import {
 const CLASSES_NO_STORE = CLASSES.filter(c => c !== "Store");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function sumAvailable(statusMap, itemId, classList) {
+function sumAllocated(statusMap, itemId, classList) {
   return classList.reduce((acc, cls) => {
-    const v = statusMap[itemId]?.[cls]?.available;
+    const v = statusMap[itemId]?.[cls]?.allocated;
     return v != null ? acc + Number(v) : acc;
   }, 0);
 }
@@ -25,9 +25,9 @@ function countClassesWithIssues(statusMap, itemId, classList) {
   return classList.reduce((acc, cls) => {
     const s = statusMap[itemId]?.[cls];
     if (!s) return acc;
-    const hasFlag    = Object.values(s.flags || {}).some(v => v);
-    const hasIsssCnt = s.issuesCount != null && s.issuesCount > 0;
-    return (hasFlag || hasIsssCnt) ? acc + 1 : acc;
+    const hasFlag      = Object.values(s.flags || {}).some(v => v);
+    const hasFlagCount = Object.values(s.flagCounts || {}).some(v => v != null && v > 0);
+    return (hasFlag || hasFlagCount) ? acc + 1 : acc;
   }, 0);
 }
 
@@ -337,8 +337,8 @@ export default function MaterialsPage({ role, initialCatId }) {
                 </tr>
               ) : filtered.map((item, idx) => {
                 const rowBg      = idx % 2 === 0 ? "white" : "#FBFDFD";
-                const total      = sumAvailable(statusMap, item.id, CLASSES_NO_STORE);
-                const grandTotal = sumAvailable(statusMap, item.id, CLASSES);
+                const total      = sumAllocated(statusMap, item.id, CLASSES_NO_STORE);
+                const grandTotal = sumAllocated(statusMap, item.id, CLASSES);
                 const issues     = countClassesWithIssues(statusMap, item.id, CLASSES_NO_STORE);
 
                 return (
@@ -387,6 +387,7 @@ export default function MaterialsPage({ role, initialCatId }) {
           onClose={() => setEditModal(null)}
           onSave={handleStatusSave}
           saving={savingStatus}
+          isAdmin={true}
         />
       )}
       {catModal && (

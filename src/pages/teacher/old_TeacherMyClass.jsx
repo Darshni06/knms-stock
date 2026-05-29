@@ -17,14 +17,14 @@ function StatusBadge({ status }) {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-      {/* Available count */}
+      {/* Allocated count */}
       {status.available != null && (
         <span style={{
           fontFamily: "DM Mono, monospace", fontWeight: 700, fontSize: 15,
           color: T.slate, background: "#F0FAF9", borderRadius: 7,
           padding: "2px 10px", border: "1px solid rgba(44,181,168,.2)"
         }}>
-          ✓ {status.available}
+          ✓ {status.available} allocated
         </span>
       )}
       {/* Issues count */}
