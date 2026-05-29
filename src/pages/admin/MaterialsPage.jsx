@@ -75,16 +75,18 @@ function CategoryModal({ existing, onClose, onSave }) {
 
 // ─── Item Modal — includes totalCount field ───────────────────────────────────
 function ItemModal({ existing, onClose, onSave }) {
-  const [name,       setName]       = useState(existing?.name    || "");
-  const [details,    setDetails]    = useState(existing?.details || "");
-  const [saving,     setSaving]     = useState(false);
+  const [name,          setName]          = useState(existing?.name          || "");
+  const [details,       setDetails]       = useState(existing?.details       || "");
+  const [materialCount, setMaterialCount] = useState(existing?.materialCount ?? "");
+  const [saving,        setSaving]        = useState(false);
 
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
     await onSave({
-      name:    name.trim(),
-      details: details.trim(),
+      name:          name.trim(),
+      details:       details.trim(),
+      materialCount: materialCount === "" ? null : Number(materialCount),
     });
     setSaving(false);
     onClose();
@@ -105,6 +107,15 @@ function ItemModal({ existing, onClose, onSave }) {
           <div>
             <label className="form-label">Details / Description</label>
             <input className="form-input" placeholder="e.g. 10 cubes" value={details} onChange={e => setDetails(e.target.value)} />
+          </div>
+          <div>
+            <label className="form-label">Material Count <span style={{ color: T.muted, fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 11 }}>(total pieces/sets for this item)</span></label>
+            <input
+              className="form-input" type="number" min="0"
+              placeholder="e.g. 10"
+              value={materialCount}
+              onChange={e => setMaterialCount(e.target.value)}
+            />
           </div>
           <div style={{ display: "flex", gap: 10, paddingTop: 4 }}>
             <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
@@ -310,6 +321,11 @@ export default function MaterialsPage({ role, initialCatId }) {
                 <th style={{ ...th({ textAlign: "left", paddingLeft: 16, position: "sticky", left: 0, zIndex: 3, minWidth: 220, background: "#F5FAFA" }) }}>
                   Material
                 </th>
+                {isAdmin && (
+                  <th style={{ ...th({ minWidth: 64, color: "#5A67D8", background: "rgba(90,103,216,.06)", borderRight: `1px solid ${T.border}` }) }}>
+                    Count
+                  </th>
+                )}
                 {CLASSES.map(cls => (
                   <th key={cls} style={th()}>{cls}</th>
                 ))}
@@ -331,7 +347,7 @@ export default function MaterialsPage({ role, initialCatId }) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={CLASSES.length + (isAdmin ? 5 : 1)} style={{ textAlign: "center", padding: 40, color: T.muted, fontSize: 14 }}>
+                  <td colSpan={CLASSES.length + (isAdmin ? 6 : 1)} style={{ textAlign: "center", padding: 40, color: T.muted, fontSize: 14 }}>
                     No items found
                   </td>
                 </tr>
@@ -348,6 +364,16 @@ export default function MaterialsPage({ role, initialCatId }) {
                       <div style={{ fontWeight: 600, fontSize: 13.5, color: T.slate }}>{item.name}</div>
                       {item.details && <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{item.details}</div>}
                     </td>
+
+                    {/* Material count — admin only */}
+                    {isAdmin && (
+                      <td style={{ padding: "8px 10px", textAlign: "center", verticalAlign: "middle", background: "rgba(90,103,216,.04)", borderRight: `1px solid ${T.border}` }}>
+                        {item.materialCount != null
+                          ? <span style={{ fontFamily: "DM Mono, monospace", fontWeight: 800, fontSize: 14, color: "#5A67D8" }}>{item.materialCount}</span>
+                          : <span style={{ color: T.border, fontSize: 13 }}>—</span>
+                        }
+                      </td>
+                    )}
 
                     {/* Class status cells */}
                     {CLASSES.map(cls => (

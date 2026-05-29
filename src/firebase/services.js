@@ -96,13 +96,13 @@ export const getItems = async (catId) => {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 };
 
-export const addItem = async (catId, { name, details, totalCount, order }) => {
+export const addItem = async (catId, { name, details, materialCount, totalCount, order }) => {
   return await addDoc(collection(db, "categories", catId, "items"), {
     name,
-    details:    details    || "",
-    totalCount: totalCount ?? null,
-    order:      order      ?? Date.now(),
-    createdAt:  serverTimestamp(),
+    details:       details       || "",
+    materialCount: materialCount ?? null,
+    order:         order         ?? Date.now(),
+    createdAt:     serverTimestamp(),
   });
 };
 

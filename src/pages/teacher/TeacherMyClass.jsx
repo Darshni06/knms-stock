@@ -231,6 +231,11 @@ export default function TeacherMyClass({ className }) {
                           {String(idx + 1).padStart(2, "0")}
                         </span>
                         <span style={{ fontWeight: 600, fontSize: 14, color: T.slate }}>{item.name}</span>
+                        {item.materialCount != null && (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#5A67D8", background: "rgba(90,103,216,.08)", borderRadius: 5, padding: "1px 7px", fontFamily: "DM Mono, monospace" }}>
+                            ×{item.materialCount}
+                          </span>
+                        )}
                       </div>
                       {item.details && (
                         <div style={{ fontSize: 11, color: T.muted, marginLeft: 32 }}>{item.details}</div>
