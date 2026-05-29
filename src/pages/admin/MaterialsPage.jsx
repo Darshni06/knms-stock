@@ -332,10 +332,10 @@ export default function MaterialsPage({ role, initialCatId }) {
                 {/* Summary cols — admin only */}
                 {isAdmin && <>
                   <th style={{ ...th({ background: "rgba(44,181,168,.08)", color: T.teal2, borderLeft: "2px solid rgba(44,181,168,.18)" }) }}>
-                    Allocated<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
+                    Available<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
                   </th>
                   <th style={{ ...th({ background: "rgba(44,100,168,.07)", color: "#2B5797", borderLeft: "2px solid rgba(44,100,168,.15)" }) }}>
-                    Allocated<br /><span style={{ fontSize: 9, fontWeight: 500 }}>+Store</span>
+                    Available<br /><span style={{ fontSize: 9, fontWeight: 500 }}>+Store</span>
                   </th>
                   <th style={{ ...th({ background: "rgba(232,135,106,.08)", color: T.peach, borderLeft: "2px solid rgba(232,135,106,.18)" }) }}>
                     Issues<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
