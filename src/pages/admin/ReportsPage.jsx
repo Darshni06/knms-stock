@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { T, FLAG_META, CLASSES } from "../../utils/theme";
 import { PageHeader, Spinner, EmptyState, ConfirmDialog } from "../../components/UI";
-import { getAllIssues, getIssuesForClass, getAllLogsForExport, resetClassStatus } from "../../firebase/services";
+import { getAllIssues, getIssuesForClass, getAllLogsForExport, resetClassStatus, resetAllData } from "../../firebase/services";
 
 // ─── Excel / CSV export ───────────────────────────────────────────────────────
 function buildAndDownload(rows, filename) {
@@ -298,14 +298,18 @@ export default function ReportsPage({ role, classFilter }) {
   };
 
   const handleReset = async (targetClass) => {
-    setResetting(true);
-    await resetClassStatus(targetClass);
-    setResetting(false);
-    setShowReset(false);
-    setResetDone(targetClass === "ALL" ? "All classes reset!" : `${targetClass} reset!`);
-    setTimeout(() => setResetDone(""), 3000);
-    await loadIssues(); // reload
-  };
+  setResetting(true);
+  if (targetClass === "ALL") {
+    await resetAllData();
+  } else {
+    await resetClassData(targetClass);
+  }
+  setResetting(false);
+  setShowReset(false);
+  setResetDone(targetClass === "ALL" ? "All classes reset!" : `${targetClass} reset!`);
+  setTimeout(() => setResetDone(""), 3000);
+  await loadIssues();
+};
 
   const filtered = issues.filter(issue => {
     if (flagFilter !== "all") {

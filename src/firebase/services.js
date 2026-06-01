@@ -300,7 +300,38 @@ export const resetAllData = async () => {
 
   console.log("✅ Reset complete for all classes");
 };
-
+// ─── Full Log Export ──────────────────────────────────────────────────────────
+export const getAllLogsForExport = async (classId) => {
+  const CLASSES_ALL = ["PP-1","PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10","Store","KK"];
+  const cats = await getCategories();
+  const logs = [];
+  for (const cat of cats) {
+    const items = await getItems(cat.id);
+    for (const item of items) {
+      const classesToCheck = classId ? [classId] : CLASSES_ALL;
+      for (const cls of classesToCheck) {
+        const snap = await getDoc(
+          doc(db, "categories", cat.id, "items", item.id, "classStatus", cls)
+        );
+        if (snap.exists()) {
+          const data = snap.data();
+          logs.push({
+            category:      cat.name,
+            item:          item.name,
+            itemDetails:   item.details || "",
+            materialCount: item.materialCount ?? null,
+            classId:       cls,
+            allocated:     data.allocated     ?? null,
+            flags:         data.flags         || {},
+            flagCounts:    data.flagCounts     || {},
+            notes:         data.notes         || "",
+          });
+        }
+      }
+    }
+  }
+  return logs;
+};
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 const SEED_CATEGORIES = [
   { id: "sensorial",        name: "Sensorial",          icon: "🔷", order: 1 },
@@ -586,4 +617,5 @@ if (typeof window !== "undefined") {
   window.seedDatabase = seedDatabase;
   window.resetClassData = resetClassData;
   window.resetAllData = resetAllData;
+  window.getAllLogsForExport = getAllLogsForExport;
 }
