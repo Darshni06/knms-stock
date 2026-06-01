@@ -6,7 +6,6 @@ import AdminDashboard from "./AdminDashboard";
 import MaterialsPage from "./MaterialsPage";
 import TeachersPage from "./TeachersPage";
 import ReportsPage from "./ReportsPage";
-import ResetPage from "./ResetPage";
 
 export default function AdminLayout() {
   const { profile } = useAuth();
@@ -31,7 +30,6 @@ export default function AdminLayout() {
         {page === "materials" && <MaterialsPage role="admin" initialCatId={pageCtx.catId} />}
         {page === "teachers"  && <TeachersPage />}
         {page === "reports"   && <ReportsPage role="admin" />}
-        {page === "reset"     && <ResetPage />}
       </div>
     </div>
   );

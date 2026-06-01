@@ -227,6 +227,80 @@ export const getAllIssues = async () => {
   return issues;
 };
 
+// ─── Reset Functions ──────────────────────────────────────────────────────────
+
+export const resetClassData = async (classId) => {
+  const cats = await getCategories();
+  const batch = writeBatch(db);
+
+  for (const cat of cats) {
+    const items = await getItems(cat.id);
+
+    for (const item of items) {
+      const ref = doc(
+        db,
+        "categories",
+        cat.id,
+        "items",
+        item.id,
+        "classStatus",
+        classId
+      );
+
+      batch.delete(ref);
+    }
+  }
+
+  await batch.commit();
+  console.log(`✅ Reset complete for ${classId}`);
+};
+
+export const resetAllData = async () => {
+  const CLASSES_ALL = [
+    "PP-1","PP-2","PP-3","PP-4","PP-5",
+    "PP-6","PP-7","PP-8","PP-9","PP-10",
+    "Store","KK"
+  ];
+
+  const cats = await getCategories();
+
+  let ops = [];
+
+  for (const cat of cats) {
+    const items = await getItems(cat.id);
+
+    for (const item of items) {
+      for (const classId of CLASSES_ALL) {
+        ops.push(
+          doc(
+            db,
+            "categories",
+            cat.id,
+            "items",
+            item.id,
+            "classStatus",
+            classId
+          )
+        );
+      }
+    }
+  }
+
+  const CHUNK = 400;
+
+  for (let i = 0; i < ops.length; i += CHUNK) {
+    const batch = writeBatch(db);
+
+    ops
+      .slice(i, i + CHUNK)
+      .forEach(ref => batch.delete(ref));
+
+    await batch.commit();
+  }
+
+  console.log("✅ Reset complete for all classes");
+};
+
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 const SEED_CATEGORIES = [
   { id: "sensorial",        name: "Sensorial",          icon: "🔷", order: 1 },
@@ -510,4 +584,6 @@ export const seedDatabase = async () => {
 // Make seedDatabase available in browser console
 if (typeof window !== "undefined") {
   window.seedDatabase = seedDatabase;
+  window.resetClassData = resetClassData;
+  window.resetAllData = resetAllData;
 }

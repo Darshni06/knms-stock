@@ -83,6 +83,7 @@ const ADMIN_NAV = [
   { id: "materials", icon: "📦", label: "Materials"   },
   { id: "teachers",  icon: "👤", label: "Teachers"    },
   { id: "reports",   icon: "📊", label: "Reports"     },
+  { id: "reset",     icon: "🔄", label: "Reset Data"  },
 ];
 const TEACHER_NAV = [
   { id: "myclass", icon: "⊞",  label: "My Class" },
