@@ -617,3 +617,4 @@ if (typeof window !== "undefined") {
   window.resetAllData = resetAllData;
   window.getAllLogsForExport = getAllLogsForExport;
 }
+}}
