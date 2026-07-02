@@ -193,7 +193,6 @@ export const getIssuesForClass = async (classId) => {
   return issues;
 };
 
-export const getAllIssues = async () => {
   export const getAllIssues = async (classes) => {
   const CLASSES = classes || ["PP-1","PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10","Store-PP","KK"];
   const cats = await getCategories();
@@ -256,7 +255,6 @@ export const resetClassData = async (classId) => {
   console.log(`✅ Reset complete for ${classId}`);
 };
 
-export const resetAllData = async () => {
   export const resetAllData = async (classes) => {
   const CLASSES_ALL = classes || ["PP-1","PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10","Store-PP","KK","P-1","P-2","P-3","P-4","P-5","P-6","P-7","P-8","P-9","Store-P"];
 
@@ -617,4 +615,3 @@ if (typeof window !== "undefined") {
   window.resetAllData = resetAllData;
   window.getAllLogsForExport = getAllLogsForExport;
 }
-}}
