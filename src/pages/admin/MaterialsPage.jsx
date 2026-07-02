@@ -10,9 +10,6 @@ import {
   setClassStatus,
 } from "../../firebase/services";
 
-// PP-1 to PP-10 + KK (no Store) — used for Total & Issues columns
-const CLASSES_NO_STORE = CLASSES.filter(c => c !== "Store");
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function sumAllocated(statusMap, itemId, classList) {
   return classList.reduce((acc, cls) => {
@@ -73,7 +70,7 @@ function CategoryModal({ existing, onClose, onSave }) {
   );
 }
 
-// ─── Item Modal — includes totalCount field ───────────────────────────────────
+// ─── Item Modal ───────────────────────────────────────────────────────────────
 function ItemModal({ existing, onClose, onSave }) {
   const [name,          setName]          = useState(existing?.name          || "");
   const [details,       setDetails]       = useState(existing?.details       || "");
@@ -109,7 +106,12 @@ function ItemModal({ existing, onClose, onSave }) {
             <input className="form-input" placeholder="e.g. 10 cubes" value={details} onChange={e => setDetails(e.target.value)} />
           </div>
           <div>
-            <label className="form-label">Material Count <span style={{ color: T.muted, fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 11 }}>(total pieces/sets for this item)</span></label>
+            <label className="form-label">
+              Material Count{" "}
+              <span style={{ color: T.muted, fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 11 }}>
+                (total pieces/sets for this item)
+              </span>
+            </label>
             <input
               className="form-input" type="number" min="0"
               placeholder="e.g. 10"
@@ -129,10 +131,10 @@ function ItemModal({ existing, onClose, onSave }) {
   );
 }
 
-// ─── Summary Cell (read-only computed column) ─────────────────────────────────
+// ─── Summary Cell ─────────────────────────────────────────────────────────────
 function SummaryCell({ value, type }) {
   const styles = {
-    total:  { bg: "rgba(44,181,168,.08)",  color: T.teal2  },
+    total:  { bg: "rgba(44,181,168,.08)",  color: T.teal2   },
     grand:  { bg: "rgba(44,100,168,.08)",  color: "#2B5797" },
     issues: { bg: value > 0 ? "rgba(232,135,106,.13)" : "rgba(240,255,248,.7)", color: value > 0 ? T.peach : "#48BB78" },
   };
@@ -151,8 +153,14 @@ function SummaryCell({ value, type }) {
 }
 
 // ─── Materials Page ───────────────────────────────────────────────────────────
-export default function MaterialsPage({ role, initialCatId }) {
+export default function MaterialsPage({ role, initialCatId, classes: classesProp }) {
   const isAdmin = role === "admin";
+
+  // Use department-scoped classes passed from AdminLayout, fallback to CLASSES
+  const visibleClasses = classesProp || CLASSES;
+
+  // Classes without Store for totals column (excludes Store-P and Store-PP)
+  const classesNoStore = visibleClasses.filter(c => !c.startsWith("Store"));
 
   const [cats, setCats]               = useState([]);
   const [activeCatId, setActiveCatId] = useState(initialCatId || null);
@@ -163,11 +171,11 @@ export default function MaterialsPage({ role, initialCatId }) {
   const [loading, setLoading]         = useState(true);
   const [loadingItems, setLoadingItems] = useState(false);
 
-  const [editModal,      setEditModal]      = useState(null);
-  const [savingStatus,   setSavingStatus]   = useState(false);
-  const [catModal,       setCatModal]       = useState(null);
-  const [itemModal,      setItemModal]      = useState(null);
-  const [confirmDelete,  setConfirmDelete]  = useState(null);
+  const [editModal,     setEditModal]     = useState(null);
+  const [savingStatus,  setSavingStatus]  = useState(false);
+  const [catModal,      setCatModal]      = useState(null);
+  const [itemModal,     setItemModal]     = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   useEffect(() => {
     getCategories().then(c => {
@@ -194,7 +202,7 @@ export default function MaterialsPage({ role, initialCatId }) {
   const filtered = items.filter(item => {
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterFlag !== "all") {
-      const hasFlag = CLASSES.some(cls => statusMap[item.id]?.[cls]?.flags?.[filterFlag]);
+      const hasFlag = visibleClasses.some(cls => statusMap[item.id]?.[cls]?.flags?.[filterFlag]);
       if (!hasFlag) return false;
     }
     return true;
@@ -300,8 +308,8 @@ export default function MaterialsPage({ role, initialCatId }) {
       {isAdmin && (
         <div style={{ display: "flex", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
           {[
-            { color: T.teal2,   bg: "rgba(44,181,168,.1)",   label: "Total (PP-1→KK, no Store)" },
-            { color: "#2B5797", bg: "rgba(44,100,168,.08)",  label: "Grand Total (including Store)" },
+            { color: T.teal2,   bg: "rgba(44,181,168,.1)",   label: `Available (excl. Store)` },
+            { color: "#2B5797", bg: "rgba(44,100,168,.08)",  label: "Grand Total (incl. Store)" },
             { color: T.peach,   bg: "rgba(232,135,106,.12)", label: "Issues" },
           ].map(l => (
             <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: T.muted }}>
@@ -326,19 +334,19 @@ export default function MaterialsPage({ role, initialCatId }) {
                     Count
                   </th>
                 )}
-                {CLASSES.map(cls => (
+                {/* ✅ visibleClasses — scoped to current department */}
+                {visibleClasses.map(cls => (
                   <th key={cls} style={th()}>{cls}</th>
                 ))}
-                {/* Summary cols — admin only */}
                 {isAdmin && <>
                   <th style={{ ...th({ background: "rgba(44,181,168,.08)", color: T.teal2, borderLeft: "2px solid rgba(44,181,168,.18)" }) }}>
-                    Available<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
+                    Available<br /><span style={{ fontSize: 9, fontWeight: 500 }}>excl. Store</span>
                   </th>
                   <th style={{ ...th({ background: "rgba(44,100,168,.07)", color: "#2B5797", borderLeft: "2px solid rgba(44,100,168,.15)" }) }}>
                     Available<br /><span style={{ fontSize: 9, fontWeight: 500 }}>+Store</span>
                   </th>
                   <th style={{ ...th({ background: "rgba(232,135,106,.08)", color: T.peach, borderLeft: "2px solid rgba(232,135,106,.18)" }) }}>
-                    Issues<br /><span style={{ fontSize: 9, fontWeight: 500 }}>PP-1→KK</span>
+                    Issues
                   </th>
                   <th style={th({ minWidth: 70 })}>Actions</th>
                 </>}
@@ -347,15 +355,16 @@ export default function MaterialsPage({ role, initialCatId }) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={CLASSES.length + (isAdmin ? 6 : 1)} style={{ textAlign: "center", padding: 40, color: T.muted, fontSize: 14 }}>
+                  <td colSpan={visibleClasses.length + (isAdmin ? 6 : 1)} style={{ textAlign: "center", padding: 40, color: T.muted, fontSize: 14 }}>
                     No items found
                   </td>
                 </tr>
               ) : filtered.map((item, idx) => {
                 const rowBg      = idx % 2 === 0 ? "white" : "#FBFDFD";
-                const total      = sumAllocated(statusMap, item.id, CLASSES_NO_STORE);
-                const grandTotal = sumAllocated(statusMap, item.id, CLASSES);
-                const issues     = countClassesWithIssues(statusMap, item.id, CLASSES_NO_STORE);
+                // ✅ use visibleClasses scoped to department
+                const total      = sumAllocated(statusMap, item.id, classesNoStore);
+                const grandTotal = sumAllocated(statusMap, item.id, visibleClasses);
+                const issues     = countClassesWithIssues(statusMap, item.id, classesNoStore);
 
                 return (
                   <tr key={item.id} style={{ borderBottom: `1px solid #F0F7F6`, background: rowBg }}>
@@ -365,7 +374,7 @@ export default function MaterialsPage({ role, initialCatId }) {
                       {item.details && <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{item.details}</div>}
                     </td>
 
-                    {/* Material count — admin only */}
+                    {/* Material count */}
                     {isAdmin && (
                       <td style={{ padding: "8px 10px", textAlign: "center", verticalAlign: "middle", background: "rgba(90,103,216,.04)", borderRight: `1px solid ${T.border}` }}>
                         {item.materialCount != null
@@ -375,8 +384,8 @@ export default function MaterialsPage({ role, initialCatId }) {
                       </td>
                     )}
 
-                    {/* Class status cells */}
-                    {CLASSES.map(cls => (
+                    {/* ✅ visibleClasses cells — scoped to department */}
+                    {visibleClasses.map(cls => (
                       <StatusCell
                         key={cls}
                         status={statusMap[item.id]?.[cls] || null}
@@ -384,7 +393,6 @@ export default function MaterialsPage({ role, initialCatId }) {
                       />
                     ))}
 
-                    {/* Summary cols — admin only */}
                     {isAdmin && <>
                       <SummaryCell value={total}      type="total"  />
                       <SummaryCell value={grandTotal} type="grand"  />

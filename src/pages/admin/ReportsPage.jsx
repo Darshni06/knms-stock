@@ -99,7 +99,7 @@ function ResetModal({ onClose, onConfirm, resetting }) {
               }}>
               🗑️ All Classes
             </div>
-            {CLASSES.map(cls => (
+            {(classesProp || CLASSES).map(cls => (
               <div key={cls}
                 onClick={() => setTargetClass(cls)}
                 style={{
@@ -236,7 +236,7 @@ function ExportModal({ onClose, monthLabel, month, setMonth }) {
               }}>
               All Classes
             </div>
-            {CLASSES.map(cls => (
+            {(classesProp || CLASSES).map(cls => (
               <div key={cls}
                 onClick={() => setExportClass(cls)}
                 style={{
@@ -268,7 +268,7 @@ function ExportModal({ onClose, monthLabel, month, setMonth }) {
 }
 
 // ─── Reports Page ─────────────────────────────────────────────────────────────
-export default function ReportsPage({ role, classFilter }) {
+export default function ReportsPage({ role, classFilter, classes: classesProp, dept }) {
   const isAdmin = role === "admin";
 
   const [issues,      setIssues]      = useState([]);
@@ -404,7 +404,7 @@ export default function ReportsPage({ role, classFilter }) {
           <select className="form-select" style={{ width: "auto", minWidth: 120 }}
             value={classF} onChange={e => setClassF(e.target.value)}>
             <option value="all">All Classes</option>
-            {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+            {(classesProp || CLASSES).map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         )}
       </div>

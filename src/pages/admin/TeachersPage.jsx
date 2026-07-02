@@ -52,7 +52,7 @@ function TeacherModal({ existing, onClose, onSave }) {
           <div>
             <label className="form-label">Assigned Class</label>
             <select className="form-select" value={className} onChange={e => setClassName(e.target.value)}>
-              {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              {(classesProp || CLASSES).map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           {err && (
@@ -70,7 +70,7 @@ function TeacherModal({ existing, onClose, onSave }) {
   );
 }
 
-export default function TeachersPage() {
+export default function TeachersPage({ classes: classesProp }) {
   const [teachers, setTeachers]     = useState([]);
   const [loading, setLoading]       = useState(true);
   const [modal, setModal]           = useState(null); // null | "new" | teacherObj
