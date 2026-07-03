@@ -1,19 +1,21 @@
 import { useState, useEffect } from "react";
-import { T, FLAG_META, CLASSES } from "../../utils/theme";
+import { T, FLAG_META } from "../../utils/theme";
 import { PageHeader, Spinner } from "../../components/UI";
 import { getCategories, getItems, getClassStatus } from "../../firebase/services";
 
-export default function AdminDashboard({ onNav }) {
+export default function AdminDashboard({ onNav, classes = [], dept = "PP" }) {
   const [cats, setCats]           = useState([]);
   const [catIssues, setCatIssues] = useState({});
   const [totals, setTotals]       = useState({ issues: 0, broken: 0, purchase: 0, repair: 0 });
   const [loading, setLoading]     = useState(true);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [dept]);
 
   const loadData = async () => {
     setLoading(true);
-    const categories = await getCategories();
+    // Only load categories for this department
+    const all = await getCategories();
+    const categories = all.filter(c => !c.dept || c.dept === dept);
     setCats(categories);
 
     const issueMap = {};
@@ -23,12 +25,13 @@ export default function AdminDashboard({ onNav }) {
       const items = await getItems(cat.id);
       let catCount = 0;
       for (const item of items) {
-        for (const cls of CLASSES) {
-          const snap = await getClassStatus(cat.id, item.id);
+        const snap = await getClassStatus(cat.id, item.id);
+        for (const cls of classes) {
           const s = snap[cls];
           if (s) {
-            const activeFlags = Object.entries(s.flags || {}).filter(([, v]) => v);
-            if (activeFlags.length > 0) {
+            const hasFlag      = Object.values(s.flags || {}).some(v => v);
+            const hasFlagCount = Object.values(s.flagCounts || {}).some(v => v != null && v > 0);
+            if (hasFlag || hasFlagCount) {
               catCount++; issues++;
               if (s.flags?.broken)   broken++;
               if (s.flags?.purchase) purchase++;
@@ -49,16 +52,19 @@ export default function AdminDashboard({ onNav }) {
 
   return (
     <div className="page-enter">
-      <PageHeader eyebrow="Admin View" title="Dashboard"
-        subtitle={`${cats.length} categories · ${CLASSES.length} classes`} />
+      <PageHeader
+        eyebrow={`${dept} Department`}
+        title="Dashboard"
+        subtitle={`${cats.length} categories · ${classes.length} classes`}
+      />
 
       {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 14, marginBottom: 32 }}>
         {[
-          { label: "Categories",     value: cats.length,      icon: "📁", accent: T.teal },
-          { label: "Total Issues",   value: totals.issues,    icon: "⚠️", accent: T.peach },
-          { label: "Broken Items",   value: totals.broken,    icon: "🔴", accent: "#C53030" },
-          { label: "Need Purchase",  value: totals.purchase,  icon: "🛒", accent: "#276749" },
+          { label: "Categories",    value: cats.length,     icon: "📁", accent: T.teal    },
+          { label: "Total Issues",  value: totals.issues,   icon: "⚠️", accent: T.peach  },
+          { label: "Broken Items",  value: totals.broken,   icon: "🔴", accent: "#C53030" },
+          { label: "Need Purchase", value: totals.purchase, icon: "🛒", accent: "#276749" },
         ].map(s => (
           <div key={s.label} className="stat-card" style={{ position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: -12, right: -8, fontSize: 48, opacity: .07 }}>{s.icon}</div>
@@ -69,7 +75,9 @@ export default function AdminDashboard({ onNav }) {
       </div>
 
       {/* Category grid */}
-      <div style={{ fontSize: 15, fontWeight: 700, color: T.slate, marginBottom: 14 }}>Categories</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: T.slate, marginBottom: 14 }}>
+        Categories — {dept} Department
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
         {cats.map(cat => {
           const count = catIssues[cat.id] || 0;
@@ -89,10 +97,15 @@ export default function AdminDashboard({ onNav }) {
                   : <span className="chip" style={{ background: "rgba(72,187,120,.1)", color: "#276749" }}>✓ OK</span>
                 }
               </div>
-              <div style={{ fontSize: 12, color: T.muted }}>{CLASSES.length} classes</div>
+              <div style={{ fontSize: 12, color: T.muted }}>{classes.length} classes</div>
             </div>
           );
         })}
+        {cats.length === 0 && (
+          <div style={{ color: T.muted, fontSize: 14, padding: 20 }}>
+            No categories for {dept} department yet. Go to Materials → + Category to add one.
+          </div>
+        )}
       </div>
     </div>
   );

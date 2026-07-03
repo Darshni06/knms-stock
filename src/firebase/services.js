@@ -7,14 +7,11 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  updatePassword,
 } from "firebase/auth";
 import { db, auth, getSecondaryAuth } from "./config";
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
-export const loginUser = (email, password) =>
-  signInWithEmailAndPassword(auth, email, password);
-
+export const loginUser  = (email, password) => signInWithEmailAndPassword(auth, email, password);
 export const logoutUser = () => signOut(auth);
 
 export const getUserProfile = async (uid) => {
@@ -22,60 +19,53 @@ export const getUserProfile = async (uid) => {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 };
 
-// ─── Teachers Management (Admin) ──────────────────────────────────────────────
+// ─── Teachers ─────────────────────────────────────────────────────────────────
 export const createTeacher = async ({ name, email, password, className }) => {
   const secondaryAuth = getSecondaryAuth();
   const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
   await setDoc(doc(db, "users", cred.user.uid), {
-    name,
-    email,
-    role: "teacher",
-    className,
-    createdAt: serverTimestamp(),
+    name, email, role: "teacher", className, createdAt: serverTimestamp(),
   });
   await secondaryAuth.signOut();
   return cred.user.uid;
 };
 
-export const updateTeacher = async (uid, data) => {
-  await updateDoc(doc(db, "users", uid), data);
-};
+export const updateTeacher = async (uid, data) =>
+  updateDoc(doc(db, "users", uid), data);
 
-export const deleteTeacher = async (uid) => {
-  await deleteDoc(doc(db, "users", uid));
-};
+export const deleteTeacher = async (uid) =>
+  deleteDoc(doc(db, "users", uid));
 
 export const getAllTeachers = async () => {
   const snap = await getDocs(collection(db, "users"));
-  return snap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .filter(u => u.role === "teacher");
+  return snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.role === "teacher");
 };
 
 // ─── Categories ───────────────────────────────────────────────────────────────
+// Returns ALL categories — filtering by dept is done in the UI
 export const getCategories = async () => {
-  const q = query(collection(db, "categories"), orderBy("order"));
+  const q    = query(collection(db, "categories"), orderBy("order"));
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 };
 
-export const addCategory = async ({ name, icon, order }) => {
+// dept: "PP" | "P" — stored on the category document
+export const addCategory = async ({ name, icon, order, dept }) => {
   return await addDoc(collection(db, "categories"), {
-    name, icon, order: order ?? Date.now(),
+    name, icon,
+    dept:      dept      || "PP",
+    order:     order     ?? Date.now(),
     createdAt: serverTimestamp(),
   });
 };
 
-export const updateCategory = async (catId, data) => {
-  await updateDoc(doc(db, "categories", catId), data);
-};
+export const updateCategory = async (catId, data) =>
+  updateDoc(doc(db, "categories", catId), data);
 
 export const deleteCategory = async (catId) => {
-  // Delete all items and their classStatus subcollections first
   const items = await getItems(catId);
   const batch = writeBatch(db);
   for (const item of items) {
-    // Delete classStatus docs
     const statuses = await getDocs(
       collection(db, "categories", catId, "items", item.id, "classStatus")
     );
@@ -88,15 +78,12 @@ export const deleteCategory = async (catId) => {
 
 // ─── Items ────────────────────────────────────────────────────────────────────
 export const getItems = async (catId) => {
-  const q = query(
-    collection(db, "categories", catId, "items"),
-    orderBy("order")
-  );
+  const q    = query(collection(db, "categories", catId, "items"), orderBy("order"));
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 };
 
-export const addItem = async (catId, { name, details, materialCount, totalCount, order }) => {
+export const addItem = async (catId, { name, details, materialCount, order }) => {
   return await addDoc(collection(db, "categories", catId, "items"), {
     name,
     details:       details       || "",
@@ -106,12 +93,10 @@ export const addItem = async (catId, { name, details, materialCount, totalCount,
   });
 };
 
-export const updateItem = async (catId, itemId, data) => {
-  await updateDoc(doc(db, "categories", catId, "items", itemId), data);
-};
+export const updateItem = async (catId, itemId, data) =>
+  updateDoc(doc(db, "categories", catId, "items", itemId), data);
 
 export const deleteItem = async (catId, itemId) => {
-  // Delete classStatus subcollection first
   const statuses = await getDocs(
     collection(db, "categories", catId, "items", itemId, "classStatus")
   );
@@ -123,7 +108,7 @@ export const deleteItem = async (catId, itemId) => {
 
 // ─── Class Status ─────────────────────────────────────────────────────────────
 export const getClassStatus = async (catId, itemId) => {
-  const snap = await getDocs(
+  const snap   = await getDocs(
     collection(db, "categories", catId, "items", itemId, "classStatus")
   );
   const result = {};
@@ -135,8 +120,7 @@ export const getAllStatusForCategory = async (catId, items) => {
   const result = {};
   await Promise.all(
     items.map(async (item) => {
-      const statusMap = await getClassStatus(catId, item.id);
-      result[item.id] = statusMap;
+      result[item.id] = await getClassStatus(catId, item.id);
     })
   );
   return result;
@@ -146,25 +130,23 @@ export const setClassStatus = async (catId, itemId, classId, data) => {
   await setDoc(
     doc(db, "categories", catId, "items", itemId, "classStatus", classId),
     {
-      allocated:   data.allocated   ?? null,
-      flags:       data.flags       || { broken: false, missing: false, paint: false, purchase: false, repair: false },
-      flagCounts:  data.flagCounts  || { broken: null, missing: null, paint: null, purchase: null, repair: null },
-      notes:       data.notes       || "",
-      updatedAt:   serverTimestamp(),
+      allocated:  data.allocated  ?? null,
+      flags:      data.flags      || { broken: false, missing: false, paint: false, purchase: false, repair: false },
+      flagCounts: data.flagCounts || { broken: null, missing: null, paint: null, purchase: null, repair: null },
+      notes:      data.notes      || "",
+      updatedAt:  serverTimestamp(),
     },
     { merge: true }
   );
 };
 
-export const deleteClassStatus = async (catId, itemId, classId) => {
-  await deleteDoc(
-    doc(db, "categories", catId, "items", itemId, "classStatus", classId)
-  );
-};
+export const deleteClassStatus = async (catId, itemId, classId) =>
+  deleteDoc(doc(db, "categories", catId, "items", itemId, "classStatus", classId));
 
 // ─── Reports ──────────────────────────────────────────────────────────────────
+// classes array is passed from the UI (scoped to current department)
 export const getIssuesForClass = async (classId) => {
-  const cats = await getCategories();
+  const cats   = await getCategories();
   const issues = [];
   for (const cat of cats) {
     const items = await getItems(cat.id);
@@ -173,18 +155,19 @@ export const getIssuesForClass = async (classId) => {
         doc(db, "categories", cat.id, "items", item.id, "classStatus", classId)
       );
       if (snap.exists()) {
-        const data = snap.data();
-        const activeFlags = Object.entries(data.flags || {}).filter(([, v]) => v);
+        const data          = snap.data();
+        const activeFlags   = Object.entries(data.flags || {}).filter(([, v]) => v);
         const hasFlagCounts = Object.values(data.flagCounts || {}).some(v => v != null && v > 0);
         if (activeFlags.length > 0 || hasFlagCounts || data.notes) {
           issues.push({
             category: cat.name, categoryIcon: cat.icon,
             item: item.name, itemDetails: item.details,
+            materialCount: item.materialCount ?? null,
             classId,
             flags:      data.flags      || {},
             flagCounts: data.flagCounts || {},
             notes:      data.notes      || "",
-            allocated:  data.allocated,
+            allocated:  data.allocated  ?? null,
           });
         }
       }
@@ -193,31 +176,34 @@ export const getIssuesForClass = async (classId) => {
   return issues;
 };
 
-  export const getAllIssues = async (classes) => {
-  const CLASSES = classes || ["PP-1","PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10","Store-PP","KK"];
-  const cats = await getCategories();
+export const getAllIssues = async (classes) => {
+  const CLASS_LIST = classes || [
+    "PP-1","PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10","Store-PP","KK"
+  ];
+  const cats   = await getCategories();
   const issues = [];
   for (const cat of cats) {
     const items = await getItems(cat.id);
     for (const item of items) {
-      for (const classId of CLASSES) {
+      for (const classId of CLASS_LIST) {
         const snap = await getDoc(
           doc(db, "categories", cat.id, "items", item.id, "classStatus", classId)
         );
         if (snap.exists()) {
-          const data = snap.data();
-          const activeFlags    = Object.entries(data.flags || {}).filter(([, v]) => v);
-          const hasFlagCounts  = Object.values(data.flagCounts || {}).some(v => v != null && v > 0);
+          const data          = snap.data();
+          const activeFlags   = Object.entries(data.flags || {}).filter(([, v]) => v);
+          const hasFlagCounts = Object.values(data.flagCounts || {}).some(v => v != null && v > 0);
           if (activeFlags.length > 0 || hasFlagCounts) {
             issues.push({
               category: cat.name, categoryIcon: cat.icon,
               categoryId: cat.id, itemId: item.id,
               item: item.name, itemDetails: item.details,
+              materialCount: item.materialCount ?? null,
               classId,
               flags:      data.flags      || {},
               flagCounts: data.flagCounts || {},
               notes:      data.notes      || "",
-              allocated:  data.allocated,
+              allocated:  data.allocated  ?? null,
             });
           }
         }
@@ -227,84 +213,58 @@ export const getIssuesForClass = async (classId) => {
   return issues;
 };
 
-// ─── Reset Functions ──────────────────────────────────────────────────────────
-
+// ─── Reset ────────────────────────────────────────────────────────────────────
 export const resetClassData = async (classId) => {
-  const cats = await getCategories();
+  const cats  = await getCategories();
   const batch = writeBatch(db);
-
   for (const cat of cats) {
     const items = await getItems(cat.id);
-
     for (const item of items) {
-      const ref = doc(
-        db,
-        "categories",
-        cat.id,
-        "items",
-        item.id,
-        "classStatus",
-        classId
+      batch.delete(
+        doc(db, "categories", cat.id, "items", item.id, "classStatus", classId)
       );
-
-      batch.delete(ref);
     }
   }
-
   await batch.commit();
   console.log(`✅ Reset complete for ${classId}`);
 };
 
-  export const resetAllData = async (classes) => {
-  const CLASSES_ALL = classes || ["PP-1","PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10","Store-PP","KK","P-1","P-2","P-3","P-4","P-5","P-6","P-7","P-8","P-9","Store-P"];
-
+export const resetAllData = async (classes) => {
+  const CLASS_LIST = classes || [
+    "PP-1","PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10","Store-PP","KK",
+    "P-1","P-2","P-3","P-4","P-5","P-6","P-7","P-8","P-9","Store-P"
+  ];
   const cats = await getCategories();
-
-  let ops = [];
-
+  const ops  = [];
   for (const cat of cats) {
     const items = await getItems(cat.id);
-
     for (const item of items) {
-      for (const classId of CLASSES_ALL) {
-        ops.push(
-          doc(
-            db,
-            "categories",
-            cat.id,
-            "items",
-            item.id,
-            "classStatus",
-            classId
-          )
-        );
+      for (const classId of CLASS_LIST) {
+        ops.push(doc(db, "categories", cat.id, "items", item.id, "classStatus", classId));
       }
     }
   }
-
   const CHUNK = 400;
-
   for (let i = 0; i < ops.length; i += CHUNK) {
     const batch = writeBatch(db);
-
-    ops
-      .slice(i, i + CHUNK)
-      .forEach(ref => batch.delete(ref));
-
+    ops.slice(i, i + CHUNK).forEach(ref => batch.delete(ref));
     await batch.commit();
   }
-
   console.log("✅ Reset complete for all classes");
 };
+
 // ─── Full Log Export ──────────────────────────────────────────────────────────
 export const getAllLogsForExport = async (classId, classes) => {
-  const CLASSES_ALL = classes || ["PP-1","PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10","Store-PP","KK","P-1","P-2","P-3","P-4","P-5","P-6","P-7","P-8","P-9","Store-P"];
+  const CLASS_LIST = classes || [
+    "PP-1","PP-2","PP-3","PP-4","PP-5","PP-6","PP-7","PP-8","PP-9","PP-10","Store-PP","KK",
+    "P-1","P-2","P-3","P-4","P-5","P-6","P-7","P-8","P-9","Store-P"
+  ];
   const cats = await getCategories();
   const logs = [];
   for (const cat of cats) {
-    const items = await getItems(cat.id);
+    const items          = await getItems(cat.id);
+    const classesToCheck = classId ? [classId] : CLASS_LIST;
     for (const item of items) {
-      const classesToCheck = classId ? [classId] : CLASSES_ALL;
       for (const cls of classesToCheck) {
         const snap = await getDoc(
           doc(db, "categories", cat.id, "items", item.id, "classStatus", cls)
@@ -314,13 +274,13 @@ export const getAllLogsForExport = async (classId, classes) => {
           logs.push({
             category:      cat.name,
             item:          item.name,
-            itemDetails:   item.details || "",
+            itemDetails:   item.details      || "",
             materialCount: item.materialCount ?? null,
             classId:       cls,
-            allocated:     data.allocated     ?? null,
-            flags:         data.flags         || {},
-            flagCounts:    data.flagCounts     || {},
-            notes:         data.notes         || "",
+            allocated:     data.allocated    ?? null,
+            flags:         data.flags        || {},
+            flagCounts:    data.flagCounts   || {},
+            notes:         data.notes        || "",
           });
         }
       }
@@ -328,17 +288,18 @@ export const getAllLogsForExport = async (classId, classes) => {
   }
   return logs;
 };
+
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 const SEED_CATEGORIES = [
-  { id: "sensorial",        name: "Sensorial",          icon: "🔷", order: 1 },
-  { id: "arithmetic",       name: "Arithmetic",         icon: "🔢", order: 2 },
-  { id: "language",         name: "Language",           icon: "🔤", order: 3 },
-  { id: "epl",              name: "EPL",                icon: "🪴", order: 4 },
-  { id: "culture",          name: "Culture",            icon: "🌍", order: 5 },
-  { id: "class-furniture",  name: "Class Furniture",    icon: "🪑", order: 6 },
-  { id: "mat-furniture",    name: "Material Furniture", icon: "🗄️", order: 7 },
-  { id: "stationary",       name: "Stationary",         icon: "✏️", order: 8 },
-  { id: "tamil",            name: "Tamil",              icon: "🅣", order: 9 },
+  { id: "sensorial",       name: "Sensorial",          icon: "🔷", order: 1,  dept: "PP" },
+  { id: "arithmetic",      name: "Arithmetic",         icon: "🔢", order: 2,  dept: "PP" },
+  { id: "language",        name: "Language",           icon: "🔤", order: 3,  dept: "PP" },
+  { id: "epl",             name: "EPL",                icon: "🪴", order: 4,  dept: "PP" },
+  { id: "culture",         name: "Culture",            icon: "🌍", order: 5,  dept: "PP" },
+  { id: "class-furniture", name: "Class Furniture",    icon: "🪑", order: 6,  dept: "PP" },
+  { id: "mat-furniture",   name: "Material Furniture", icon: "🗄️", order: 7, dept: "PP" },
+  { id: "stationary",      name: "Stationary",         icon: "✏️", order: 8, dept: "PP" },
+  { id: "tamil",           name: "Tamil",              icon: "🅣",  order: 9, dept: "PP" },
 ];
 
 const SEED_ITEMS = {
@@ -452,9 +413,9 @@ const SEED_ITEMS = {
     { name: "Classified Cards - Vegetables", details: "With name 8 + Without name 8 + name slips 8" },
     { name: "Sandpaper Globe", details: "1 globe" },
     { name: "Air Pump + Balloon", details: "1 air pump + balloons" },
-    { name: "Land & Water Forms (Lake/Island/Strait/Isthmus/Gulf/Peninsula/Cape/Bay)", details: "1 set" },
+    { name: "Land & Water Forms", details: "1 set" },
     { name: "Continent Globe", details: "1 globe" },
-    { name: "Magnet Sorting (Magnetic / Non-magnetic)", details: "1 set objects + magnet" },
+    { name: "Magnet Sorting", details: "1 set objects + magnet" },
     { name: "Life Cycle Puzzles (Frog / Hen / Butterfly)", details: "3 puzzles" },
     { name: "Classified Cards - Transport", details: "Land + Water + Air" },
     { name: "Classified Cards - Stages of Leaves", details: "With name 4 + Without name 4 + slips 4" },
@@ -588,30 +549,22 @@ const SEED_ITEMS = {
 export const seedDatabase = async () => {
   console.log("🌱 Starting seed...");
   const batch = writeBatch(db);
-
   for (const cat of SEED_CATEGORIES) {
     const catRef = doc(db, "categories", cat.id);
-    batch.set(catRef, { name: cat.name, icon: cat.icon, order: cat.order, createdAt: serverTimestamp() });
+    batch.set(catRef, { name: cat.name, icon: cat.icon, dept: cat.dept, order: cat.order, createdAt: serverTimestamp() });
     const items = SEED_ITEMS[cat.id] || [];
     for (let i = 0; i < items.length; i++) {
       const itemRef = doc(collection(db, "categories", cat.id, "items"));
-      batch.set(itemRef, {
-        name: items[i].name,
-        details: items[i].details || "",
-        order: (i + 1) * 10,
-        createdAt: serverTimestamp(),
-      });
+      batch.set(itemRef, { name: items[i].name, details: items[i].details || "", order: (i + 1) * 10, createdAt: serverTimestamp() });
     }
   }
-
   await batch.commit();
   console.log("✅ Seed complete!");
 };
 
-// Make seedDatabase available in browser console
 if (typeof window !== "undefined") {
-  window.seedDatabase = seedDatabase;
-  window.resetClassData = resetClassData;
-  window.resetAllData = resetAllData;
-  window.getAllLogsForExport = getAllLogsForExport;
+  window.seedDatabase         = seedDatabase;
+  window.resetClassData       = resetClassData;
+  window.resetAllData         = resetAllData;
+  window.getAllLogsForExport   = getAllLogsForExport;
 }

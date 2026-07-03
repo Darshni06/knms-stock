@@ -30,8 +30,8 @@ function countClassesWithIssues(statusMap, itemId, classList) {
 
 // ─── Category Modal ───────────────────────────────────────────────────────────
 function CategoryModal({ existing, onClose, onSave }) {
-  const [name, setName] = useState(existing?.name || "");
-  const [icon, setIcon] = useState(existing?.icon || "📦");
+  const [name, setName]   = useState(existing?.name || "");
+  const [icon, setIcon]   = useState(existing?.icon || "📦");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -106,18 +106,8 @@ function ItemModal({ existing, onClose, onSave }) {
             <input className="form-input" placeholder="e.g. 10 cubes" value={details} onChange={e => setDetails(e.target.value)} />
           </div>
           <div>
-            <label className="form-label">
-              Material Count{" "}
-              <span style={{ color: T.muted, fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 11 }}>
-                (total pieces/sets for this item)
-              </span>
-            </label>
-            <input
-              className="form-input" type="number" min="0"
-              placeholder="e.g. 10"
-              value={materialCount}
-              onChange={e => setMaterialCount(e.target.value)}
-            />
+            <label className="form-label">Material Count <span style={{ color: T.muted, fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 11 }}>(total pieces/sets)</span></label>
+            <input className="form-input" type="number" min="0" placeholder="e.g. 10" value={materialCount} onChange={e => setMaterialCount(e.target.value)} />
           </div>
           <div style={{ display: "flex", gap: 10, paddingTop: 4 }}>
             <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
@@ -140,27 +130,119 @@ function SummaryCell({ value, type }) {
   };
   const s = styles[type];
   return (
-    <td style={{
-      padding: "8px 10px", textAlign: "center", verticalAlign: "middle",
-      background: s.bg, minWidth: 72,
-      borderLeft: "2px solid rgba(44,181,168,.13)",
-    }}>
-      <span style={{ fontFamily: "DM Mono, monospace", fontWeight: 800, fontSize: 15, color: s.color }}>
-        {value}
-      </span>
+    <td style={{ padding: "8px 10px", textAlign: "center", verticalAlign: "middle", background: s.bg, minWidth: 72, borderLeft: "2px solid rgba(44,181,168,.13)" }}>
+      <span style={{ fontFamily: "DM Mono, monospace", fontWeight: 800, fontSize: 15, color: s.color }}>{value}</span>
     </td>
   );
 }
 
+// ─── Admin Log View (vertical cards like teacher, but for a selected class) ───
+function AdminLogView({ items, statusMap, selectedClass, onCellClick }) {
+  const issueCount   = items.filter(item => {
+    const s = statusMap[item.id]?.[selectedClass];
+    if (!s) return false;
+    return Object.values(s.flags || {}).some(v => v) ||
+           Object.values(s.flagCounts || {}).some(v => v != null && v > 0);
+  }).length;
+  const recordedCount = items.filter(item => statusMap[item.id]?.[selectedClass]).length;
+
+  return (
+    <div>
+      {/* Progress */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: T.muted, marginBottom: 5 }}>
+          <span>{selectedClass} — RECORDING PROGRESS</span>
+          <span>{items.length > 0 ? Math.round((recordedCount / items.length) * 100) : 0}%</span>
+        </div>
+        <div style={{ height: 7, borderRadius: 99, background: T.border, overflow: "hidden" }}>
+          <div style={{ height: "100%", borderRadius: 99, background: `linear-gradient(90deg, ${T.teal}, #48BB78)`, width: `${items.length > 0 ? (recordedCount / items.length) * 100 : 0}%`, transition: "width .4s ease" }} />
+        </div>
+        <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>
+          {recordedCount} of {items.length} recorded · {issueCount} with issues
+        </div>
+      </div>
+
+      {/* Cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {items.map((item, idx) => {
+          const status   = statusMap[item.id]?.[selectedClass] || null;
+          const hasIssue = status && (Object.values(status.flags || {}).some(v => v) || Object.values(status.flagCounts || {}).some(v => v != null && v > 0));
+          const isRecorded = !!status;
+
+          return (
+            <div key={item.id}
+              onClick={() => onCellClick(item, selectedClass)}
+              className="card"
+              style={{
+                padding: "14px 18px", cursor: "pointer",
+                borderLeft: `4px solid ${hasIssue ? T.peach : isRecorded ? "#48BB78" : T.border}`,
+                transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = "translateX(3px)"}
+              onMouseLeave={e => e.currentTarget.style.transform = ""}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: T.muted, fontFamily: "DM Mono, monospace", minWidth: 24 }}>
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: T.slate }}>{item.name}</span>
+                  {item.materialCount != null && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#5A67D8", background: "rgba(90,103,216,.08)", borderRadius: 5, padding: "1px 7px", fontFamily: "DM Mono, monospace" }}>
+                      ×{item.materialCount}
+                    </span>
+                  )}
+                </div>
+                {item.details && <div style={{ fontSize: 11, color: T.muted, marginLeft: 32 }}>{item.details}</div>}
+                {/* Status preview */}
+                {status && (
+                  <div style={{ marginTop: 6, marginLeft: 32, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    {status.allocated != null && (
+                      <span style={{ fontFamily: "DM Mono, monospace", fontWeight: 700, fontSize: 13, color: T.slate, background: "#F0FAF9", borderRadius: 6, padding: "1px 8px", border: "1px solid rgba(44,181,168,.2)" }}>
+                        ✓ {status.allocated} allocated
+                      </span>
+                    )}
+                    {Object.entries(status.flagCounts || {}).filter(([, v]) => v != null && v > 0).map(([k, v]) => (
+                      <span key={k} style={{ fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: FLAG_META[k].bg, color: FLAG_META[k].color }}>
+                        {FLAG_META[k].icon} {FLAG_META[k].label}: {v}
+                      </span>
+                    ))}
+                    {Object.entries(status.flags || {}).filter(([, v]) => v).length > 0 &&
+                     Object.entries(status.flagCounts || {}).filter(([, v]) => v != null && v > 0).length === 0 &&
+                     Object.entries(status.flags || {}).filter(([, v]) => v).map(([k]) => (
+                      <span key={k} style={{ fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: FLAG_META[k].bg, color: FLAG_META[k].color }}>
+                        {FLAG_META[k].icon} {FLAG_META[k].label}
+                      </span>
+                    ))}
+                    {!hasIssue && <span style={{ fontSize: 12, color: "#48BB78", fontWeight: 600 }}>OK</span>}
+                  </div>
+                )}
+              </div>
+              <div style={{
+                flexShrink: 0, width: 36, height: 36, borderRadius: 9,
+                background: hasIssue ? "rgba(232,135,106,.12)" : isRecorded ? "rgba(72,187,120,.1)" : "rgba(44,181,168,.08)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 16, color: hasIssue ? T.peach : isRecorded ? "#48BB78" : T.teal,
+              }}>
+                {hasIssue ? "⚠️" : isRecorded ? "✓" : "＋"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Materials Page ───────────────────────────────────────────────────────────
-export default function MaterialsPage({ role, initialCatId, classes: classesProp }) {
-  const isAdmin = role === "admin";
-
-  // Use department-scoped classes passed from AdminLayout, fallback to CLASSES
+export default function MaterialsPage({ role, initialCatId, classes: classesProp, dept = "PP" }) {
+  const isAdmin        = role === "admin";
   const visibleClasses = classesProp || CLASSES;
-
-  // Classes without Store for totals column (excludes Store-P and Store-PP)
   const classesNoStore = visibleClasses.filter(c => !c.startsWith("Store"));
+
+  // Admin can switch between "table" view and "log" view (per-class card view)
+  const [viewMode,      setViewMode]      = useState("table"); // "table" | "log"
+  const [logClass,      setLogClass]      = useState(visibleClasses[0] || "");
 
   const [cats, setCats]               = useState([]);
   const [activeCatId, setActiveCatId] = useState(initialCatId || null);
@@ -177,18 +259,28 @@ export default function MaterialsPage({ role, initialCatId, classes: classesProp
   const [itemModal,     setItemModal]     = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
+  // Load categories scoped to dept
   useEffect(() => {
-    getCategories().then(c => {
-      setCats(c);
-      if (!activeCatId && c.length > 0) setActiveCatId(c[0].id);
+    getCategories().then(all => {
+      const deptCats = all.filter(c => !c.dept || c.dept === dept);
+      setCats(deptCats);
+      if (!activeCatId && deptCats.length > 0) setActiveCatId(deptCats[0].id);
+      else if (activeCatId && !deptCats.find(c => c.id === activeCatId)) {
+        setActiveCatId(deptCats[0]?.id || null);
+      }
       setLoading(false);
     });
-  }, []);
+  }, [dept]);
 
   useEffect(() => {
     if (!activeCatId) return;
     loadCategoryData(activeCatId);
   }, [activeCatId]);
+
+  // Reset logClass when dept changes
+  useEffect(() => {
+    setLogClass(visibleClasses[0] || "");
+  }, [dept]);
 
   const loadCategoryData = useCallback(async (catId) => {
     setLoadingItems(true);
@@ -208,7 +300,6 @@ export default function MaterialsPage({ role, initialCatId, classes: classesProp
     return true;
   });
 
-  // ── Saves ──────────────────────────────────────────────────────────────────
   const handleStatusSave = async (data) => {
     if (!editModal) return;
     setSavingStatus(true);
@@ -219,14 +310,16 @@ export default function MaterialsPage({ role, initialCatId, classes: classesProp
   };
 
   const handleCatSave = async (data) => {
-    if (catModal === "new") await addCategory({ ...data, order: (cats.length + 1) * 10 });
+    if (catModal === "new") await addCategory({ ...data, dept, order: (cats.length + 1) * 10 });
     else                    await updateCategory(catModal.id, data);
-    setCats(await getCategories());
+    const all = await getCategories();
+    setCats(all.filter(c => !c.dept || c.dept === dept));
   };
 
   const handleCatDelete = async () => {
     await deleteCategory(confirmDelete.id);
-    const updated = await getCategories();
+    const all = await getCategories();
+    const updated = all.filter(c => !c.dept || c.dept === dept);
     setCats(updated);
     if (activeCatId === confirmDelete.id) setActiveCatId(updated[0]?.id || null);
     setConfirmDelete(null);
@@ -258,7 +351,7 @@ export default function MaterialsPage({ role, initialCatId, classes: classesProp
   return (
     <div className="page-enter">
       <PageHeader
-        eyebrow={isAdmin ? "Admin View" : "Teacher View"}
+        eyebrow={`${dept} Department`}
         title="Materials"
         action={isAdmin && (
           <div style={{ display: "flex", gap: 8 }}>
@@ -283,133 +376,167 @@ export default function MaterialsPage({ role, initialCatId, classes: classesProp
             )}
           </div>
         ))}
+        {cats.length === 0 && (
+          <div style={{ color: T.muted, fontSize: 13 }}>No categories yet — click + Category to add one.</div>
+        )}
       </div>
 
-      {/* Toolbar */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search items…" />
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {[{ value: "all", label: "All" }, ...Object.entries(FLAG_META).map(([k, m]) => ({ value: k, label: `${m.icon} ${m.label}` }))].map(f => (
-            <button key={f.value} onClick={() => setFilterFlag(f.value)}
+      {/* View mode switcher — admin only */}
+      {isAdmin && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+          {[
+            { id: "table", label: "📊 Table View" },
+            { id: "log",   label: "📋 Log by Class" },
+          ].map(v => (
+            <button key={v.id} onClick={() => setViewMode(v.id)}
               style={{
-                padding: "6px 13px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                border: `1.5px solid ${filterFlag === f.value ? T.teal : T.border}`,
-                background: filterFlag === f.value ? "rgba(44,181,168,.1)" : "white",
-                color: filterFlag === f.value ? T.teal2 : T.muted,
-                fontFamily: "Sora", transition: "all .14s",
+                padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+                cursor: "pointer", fontFamily: "Sora", transition: "all .15s",
+                background: viewMode === v.id ? T.teal : "white",
+                color: viewMode === v.id ? "white" : T.muted,
+                border: `1.5px solid ${viewMode === v.id ? T.teal : T.border}`,
               }}>
-              {f.label}
+              {v.label}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Legend */}
-      {isAdmin && (
-        <div style={{ display: "flex", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
-          {[
-            { color: T.teal2,   bg: "rgba(44,181,168,.1)",   label: `Available (excl. Store)` },
-            { color: "#2B5797", bg: "rgba(44,100,168,.08)",  label: "Grand Total (incl. Store)" },
-            { color: T.peach,   bg: "rgba(232,135,106,.12)", label: "Issues" },
-          ].map(l => (
-            <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: T.muted }}>
-              <div style={{ width: 12, height: 12, borderRadius: 3, background: l.bg, border: `1.5px solid ${l.color}` }} />
-              {l.label}
-            </div>
-          ))}
+          {/* Class picker for log view */}
+          {viewMode === "log" && (
+            <select className="form-select" style={{ width: "auto", minWidth: 120 }}
+              value={logClass} onChange={e => setLogClass(e.target.value)}>
+              {visibleClasses.map(cls => <option key={cls} value={cls}>{cls}</option>)}
+            </select>
+          )}
         </div>
       )}
 
-      {/* Table */}
-      {loadingItems ? <Spinner /> : (
-        <div style={{ overflowX: "auto", borderRadius: 14, boxShadow: "0 2px 14px rgba(30,42,56,.07)", border: `1px solid ${T.border}` }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", background: "white" }}>
-            <thead>
-              <tr style={{ background: "#F5FAFA" }}>
-                <th style={{ ...th({ textAlign: "left", paddingLeft: 16, position: "sticky", left: 0, zIndex: 3, minWidth: 220, background: "#F5FAFA" }) }}>
-                  Material
-                </th>
-                {isAdmin && (
-                  <th style={{ ...th({ minWidth: 64, color: "#5A67D8", background: "rgba(90,103,216,.06)", borderRight: `1px solid ${T.border}` }) }}>
-                    Count
-                  </th>
-                )}
-                {/* ✅ visibleClasses — scoped to current department */}
-                {visibleClasses.map(cls => (
-                  <th key={cls} style={th()}>{cls}</th>
-                ))}
-                {isAdmin && <>
-                  <th style={{ ...th({ background: "rgba(44,181,168,.08)", color: T.teal2, borderLeft: "2px solid rgba(44,181,168,.18)" }) }}>
-                    Available<br /><span style={{ fontSize: 9, fontWeight: 500 }}>excl. Store</span>
-                  </th>
-                  <th style={{ ...th({ background: "rgba(44,100,168,.07)", color: "#2B5797", borderLeft: "2px solid rgba(44,100,168,.15)" }) }}>
-                    Available<br /><span style={{ fontSize: 9, fontWeight: 500 }}>+Store</span>
-                  </th>
-                  <th style={{ ...th({ background: "rgba(232,135,106,.08)", color: T.peach, borderLeft: "2px solid rgba(232,135,106,.18)" }) }}>
-                    Issues
-                  </th>
-                  <th style={th({ minWidth: 70 })}>Actions</th>
-                </>}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={visibleClasses.length + (isAdmin ? 6 : 1)} style={{ textAlign: "center", padding: 40, color: T.muted, fontSize: 14 }}>
-                    No items found
-                  </td>
-                </tr>
-              ) : filtered.map((item, idx) => {
-                const rowBg      = idx % 2 === 0 ? "white" : "#FBFDFD";
-                // ✅ use visibleClasses scoped to department
-                const total      = sumAllocated(statusMap, item.id, classesNoStore);
-                const grandTotal = sumAllocated(statusMap, item.id, visibleClasses);
-                const issues     = countClassesWithIssues(statusMap, item.id, classesNoStore);
-
-                return (
-                  <tr key={item.id} style={{ borderBottom: `1px solid #F0F7F6`, background: rowBg }}>
-                    {/* Item name */}
-                    <td style={{ padding: "11px 16px", position: "sticky", left: 0, background: rowBg, zIndex: 1, borderRight: `1px solid ${T.border}` }}>
-                      <div style={{ fontWeight: 600, fontSize: 13.5, color: T.slate }}>{item.name}</div>
-                      {item.details && <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{item.details}</div>}
-                    </td>
-
-                    {/* Material count */}
-                    {isAdmin && (
-                      <td style={{ padding: "8px 10px", textAlign: "center", verticalAlign: "middle", background: "rgba(90,103,216,.04)", borderRight: `1px solid ${T.border}` }}>
-                        {item.materialCount != null
-                          ? <span style={{ fontFamily: "DM Mono, monospace", fontWeight: 800, fontSize: 14, color: "#5A67D8" }}>{item.materialCount}</span>
-                          : <span style={{ color: T.border, fontSize: 13 }}>—</span>
-                        }
-                      </td>
-                    )}
-
-                    {/* ✅ visibleClasses cells — scoped to department */}
-                    {visibleClasses.map(cls => (
-                      <StatusCell
-                        key={cls}
-                        status={statusMap[item.id]?.[cls] || null}
-                        onClick={() => setEditModal({ item, classId: cls })}
-                      />
-                    ))}
-
-                    {isAdmin && <>
-                      <SummaryCell value={total}      type="total"  />
-                      <SummaryCell value={grandTotal} type="grand"  />
-                      <SummaryCell value={issues}     type="issues" />
-                      <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                        <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
-                          <button onClick={() => setItemModal(item)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: .7 }}>✏️</button>
-                          <button onClick={() => setConfirmDelete({ type: "item", id: item.id })} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: .7 }}>🗑️</button>
-                        </div>
-                      </td>
-                    </>}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {/* Search + filter toolbar — table view only */}
+      {viewMode === "table" && (
+        <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search items…" />
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {[{ value: "all", label: "All" }, ...Object.entries(FLAG_META).map(([k, m]) => ({ value: k, label: `${m.icon} ${m.label}` }))].map(f => (
+              <button key={f.value} onClick={() => setFilterFlag(f.value)}
+                style={{
+                  padding: "6px 13px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  border: `1.5px solid ${filterFlag === f.value ? T.teal : T.border}`,
+                  background: filterFlag === f.value ? "rgba(44,181,168,.1)" : "white",
+                  color: filterFlag === f.value ? T.teal2 : T.muted,
+                  fontFamily: "Sora", transition: "all .14s",
+                }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
+      )}
+
+      {loadingItems ? <Spinner /> : (
+        <>
+          {/* LOG VIEW — admin logs per class like teacher */}
+          {viewMode === "log" && isAdmin && (
+            <AdminLogView
+              items={items}
+              statusMap={statusMap}
+              selectedClass={logClass}
+              onCellClick={(item, cls) => setEditModal({ item, classId: cls })}
+            />
+          )}
+
+          {/* TABLE VIEW */}
+          {viewMode === "table" && (
+            <>
+              {isAdmin && (
+                <div style={{ display: "flex", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
+                  {[
+                    { color: T.teal2,   bg: "rgba(44,181,168,.1)",   label: "Available (excl. Store)" },
+                    { color: "#2B5797", bg: "rgba(44,100,168,.08)",  label: "Grand Total (incl. Store)" },
+                    { color: T.peach,   bg: "rgba(232,135,106,.12)", label: "Issues" },
+                  ].map(l => (
+                    <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: T.muted }}>
+                      <div style={{ width: 12, height: 12, borderRadius: 3, background: l.bg, border: `1.5px solid ${l.color}` }} />
+                      {l.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ overflowX: "auto", borderRadius: 14, boxShadow: "0 2px 14px rgba(30,42,56,.07)", border: `1px solid ${T.border}` }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", background: "white" }}>
+                  <thead>
+                    <tr style={{ background: "#F5FAFA" }}>
+                      <th style={{ ...th({ textAlign: "left", paddingLeft: 16, position: "sticky", left: 0, zIndex: 3, minWidth: 220, background: "#F5FAFA" }) }}>Material</th>
+                      {isAdmin && (
+                        <th style={{ ...th({ minWidth: 64, color: "#5A67D8", background: "rgba(90,103,216,.06)", borderRight: `1px solid ${T.border}` }) }}>Count</th>
+                      )}
+                      {visibleClasses.map(cls => (
+                        <th key={cls} style={th()}>{cls}</th>
+                      ))}
+                      {isAdmin && <>
+                        <th style={{ ...th({ background: "rgba(44,181,168,.08)", color: T.teal2, borderLeft: "2px solid rgba(44,181,168,.18)" }) }}>
+                          Available<br /><span style={{ fontSize: 9, fontWeight: 500 }}>excl. Store</span>
+                        </th>
+                        <th style={{ ...th({ background: "rgba(44,100,168,.07)", color: "#2B5797", borderLeft: "2px solid rgba(44,100,168,.15)" }) }}>
+                          Available<br /><span style={{ fontSize: 9, fontWeight: 500 }}>+Store</span>
+                        </th>
+                        <th style={{ ...th({ background: "rgba(232,135,106,.08)", color: T.peach, borderLeft: "2px solid rgba(232,135,106,.18)" }) }}>Issues</th>
+                        <th style={th({ minWidth: 70 })}>Actions</th>
+                      </>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.length === 0 ? (
+                      <tr>
+                        <td colSpan={visibleClasses.length + (isAdmin ? 6 : 1)} style={{ textAlign: "center", padding: 40, color: T.muted, fontSize: 14 }}>
+                          No items found
+                        </td>
+                      </tr>
+                    ) : filtered.map((item, idx) => {
+                      const rowBg      = idx % 2 === 0 ? "white" : "#FBFDFD";
+                      const total      = sumAllocated(statusMap, item.id, classesNoStore);
+                      const grandTotal = sumAllocated(statusMap, item.id, visibleClasses);
+                      const issues     = countClassesWithIssues(statusMap, item.id, classesNoStore);
+
+                      return (
+                        <tr key={item.id} style={{ borderBottom: `1px solid #F0F7F6`, background: rowBg }}>
+                          <td style={{ padding: "11px 16px", position: "sticky", left: 0, background: rowBg, zIndex: 1, borderRight: `1px solid ${T.border}` }}>
+                            <div style={{ fontWeight: 600, fontSize: 13.5, color: T.slate }}>{item.name}</div>
+                            {item.details && <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{item.details}</div>}
+                          </td>
+                          {isAdmin && (
+                            <td style={{ padding: "8px 10px", textAlign: "center", verticalAlign: "middle", background: "rgba(90,103,216,.04)", borderRight: `1px solid ${T.border}` }}>
+                              {item.materialCount != null
+                                ? <span style={{ fontFamily: "DM Mono, monospace", fontWeight: 800, fontSize: 14, color: "#5A67D8" }}>{item.materialCount}</span>
+                                : <span style={{ color: T.border, fontSize: 13 }}>—</span>
+                              }
+                            </td>
+                          )}
+                          {visibleClasses.map(cls => (
+                            <StatusCell
+                              key={cls}
+                              status={statusMap[item.id]?.[cls] || null}
+                              onClick={() => setEditModal({ item, classId: cls })}
+                            />
+                          ))}
+                          {isAdmin && <>
+                            <SummaryCell value={total}      type="total"  />
+                            <SummaryCell value={grandTotal} type="grand"  />
+                            <SummaryCell value={issues}     type="issues" />
+                            <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                              <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                                <button onClick={() => setItemModal(item)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: .7 }}>✏️</button>
+                                <button onClick={() => setConfirmDelete({ type: "item", id: item.id })} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: .7 }}>🗑️</button>
+                              </div>
+                            </td>
+                          </>}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </>
       )}
 
       {/* Modals */}
@@ -421,7 +548,7 @@ export default function MaterialsPage({ role, initialCatId, classes: classesProp
           onClose={() => setEditModal(null)}
           onSave={handleStatusSave}
           saving={savingStatus}
-          isAdmin={true}
+          isAdmin={isAdmin}
         />
       )}
       {catModal && (

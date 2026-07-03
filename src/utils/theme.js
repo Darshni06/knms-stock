@@ -1,3 +1,4 @@
+//src/utils/theme.js
 export const T = {
   teal:   "#2CB5A8",
   teal2:  "#1a8a80",
