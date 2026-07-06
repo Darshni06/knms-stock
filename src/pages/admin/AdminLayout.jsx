@@ -7,6 +7,7 @@ import AdminDashboard from "./AdminDashboard";
 import MaterialsPage from "./MaterialsPage";
 import TeachersPage from "./TeachersPage";
 import ReportsPage from "./ReportsPage";
+import ResetPage from "./ResetPage";
 
 export default function AdminLayout() {
   const { profile }           = useAuth();
@@ -30,7 +31,7 @@ export default function AdminLayout() {
       />
       <div className="main">
 
-        {/* Department switcher — top of every page */}
+        {/* Department switcher */}
         <div style={{
           display: "flex", alignItems: "center", gap: 10,
           marginBottom: 24, padding: "10px 16px",
@@ -63,6 +64,7 @@ export default function AdminLayout() {
         {page === "materials" && <MaterialsPage role="admin" initialCatId={pageCtx.catId} classes={classes} dept={dept} />}
         {page === "teachers"  && <TeachersPage classes={classes} dept={dept} />}
         {page === "reports"   && <ReportsPage role="admin" classes={classes} dept={dept} />}
+        {page === "reset"     && <ResetPage classes={classes} dept={dept} />}
       </div>
     </div>
   );

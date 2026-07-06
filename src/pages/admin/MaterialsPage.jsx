@@ -548,7 +548,6 @@ export default function MaterialsPage({ role, initialCatId, classes: classesProp
           onClose={() => setEditModal(null)}
           onSave={handleStatusSave}
           saving={savingStatus}
-          isAdmin={isAdmin}
         />
       )}
       {catModal && (
