@@ -3,6 +3,7 @@ import { T, FLAG_META, CLASSES } from "../../utils/theme";
 import { PageHeader, Spinner, SearchInput, ConfirmDialog, EmptyState } from "../../components/UI";
 import { StatusCell } from "../../components/StatusCell";
 import { StatusEditModal } from "../../components/StatusEditModal";
+import { ImportItemsModal } from "../../components/ImportItemsModal";
 import {
   getCategories, getItems, getAllStatusForCategory,
   addCategory, updateCategory, deleteCategory,
@@ -257,7 +258,8 @@ export default function MaterialsPage({ role, initialCatId, classes: classesProp
   const [savingStatus,  setSavingStatus]  = useState(false);
   const [catModal,      setCatModal]      = useState(null);
   const [itemModal,     setItemModal]     = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmDelete,  setConfirmDelete]  = useState(null);
+  const [showImport,     setShowImport]     = useState(false);
 
   // Load categories scoped to dept
   useEffect(() => {
@@ -330,6 +332,17 @@ export default function MaterialsPage({ role, initialCatId, classes: classesProp
     else                     await updateItem(activeCatId, itemModal.id, data);
     await loadCategoryData(activeCatId);
   };
+  const handleImport = async (rows) => {
+    for (let i = 0; i < rows.length; i++) {
+      await addItem(activeCatId, {
+        name:          rows[i].name,
+        details:       rows[i].details || "",
+        materialCount: rows[i].materialCount ?? null,
+        order:         (items.length + i + 1) * 10,
+      });
+    }
+    await loadCategoryData(activeCatId);
+  };
 
   const handleItemDelete = async () => {
     await deleteItem(activeCatId, confirmDelete.id);
@@ -356,6 +369,7 @@ export default function MaterialsPage({ role, initialCatId, classes: classesProp
         action={isAdmin && (
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn btn-ghost" onClick={() => setCatModal("new")} style={{ fontSize: 12 }}>+ Category</button>
+            {activeCatId && <button className="btn btn-ghost" onClick={() => setShowImport(true)} style={{ fontSize: 12 }}>📥 Import Items</button>}
             {activeCatId && <button className="btn btn-primary" onClick={() => setItemModal("new")}>+ Add Item</button>}
           </div>
         )}
@@ -562,6 +576,13 @@ export default function MaterialsPage({ role, initialCatId, classes: classesProp
           existing={itemModal !== "new" ? itemModal : null}
           onClose={() => setItemModal(null)}
           onSave={handleItemSave}
+        />
+      )}
+      {showImport && activeCatId && (
+        <ImportItemsModal
+          catName={cats.find(c => c.id === activeCatId)?.name || ""}
+          onClose={() => setShowImport(false)}
+          onImport={handleImport}
         />
       )}
       {confirmDelete && (
